@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="fr">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -15,48 +15,49 @@
   <header class="topbar">
     <div class="title">
       <h1>Opportunities Manager</h1>
-      <span class="version">Version V3-Avancée - 03/10/2025 18:40 (heure française)</span>
+      <span class="version">Version V3.2 - 03/10/2025 19:10 (French time)</span>
     </div>
     <div class="actions">
-      <button id="btn-new" title="Nouvelle opportunité">➕ Nouveau</button>
-      <button id="btn-save" title="Enregistrer local">💾 Enregistrer</button>
+      <button id="btn-new" title="Create opportunity">➕ New</button>
+      <button id="btn-save" title="Save locally">💾 Save</button>
       <div class="split">
-        <button id="btn-export-xlsx">⬇️ XLSX</button>
-        <button id="btn-export-csv">⬇️ CSV</button>
+        <button id="btn-export-xlsx" title="Download Excel file">⬇️ Export Excel (.xlsx)</button>
+        <button id="btn-export-csv" title="Download CSV file">⬇️ Export CSV</button>
         <label class="import-label">⬆️ Import
           <input id="file-input" type="file" accept=".xlsx,.csv" />
         </label>
       </div>
-      <button id="btn-reset" class="warn" title="Réinitialiser (local)">♻️ Reset</button>
+      <button id="btn-reset" class="warn" title="Reset local data">♻️ Reset</button>
+      <button id="btn-debug" class="ghost" title="Toggle debug panel" aria-controls="debug-panel" aria-expanded="false">🐞 Debug</button>
     </div>
   </header>
 
   <main class="container">
     <aside class="panel">
-      <h2>Filtres</h2>
+      <h2>Filters</h2>
       <div class="field">
-        <label>Recherche</label>
-        <input type="search" id="q" placeholder="ID, nom, notes…">
+        <label>Search</label>
+        <input type="search" id="q" placeholder="ID, name, notes…">
       </div>
       <div class="grid-2">
         <div class="field">
           <label>Client</label>
-          <select id="f-client"><option value="">(tous)</option></select>
+          <select id="f-client"><option value="">(all)</option></select>
         </div>
         <div class="field">
           <label>Owner</label>
-          <select id="f-owner"><option value="">(tous)</option></select>
+          <select id="f-owner"><option value="">(all)</option></select>
         </div>
         <div class="field">
-          <label>Étape</label>
-          <select id="f-step"><option value="">(toutes)</option></select>
+          <label>Sales step</label>
+          <select id="f-step"><option value="">(all)</option></select>
         </div>
         <div class="field">
-          <label>Prochaine action ⩾</label>
+          <label>Next action ≥</label>
           <input id="f-nextdate" type="date">
         </div>
       </div>
-      <p class="hint">Astuce : tape <b>overdue</b> dans la recherche pour voir les actions en retard.</p>
+      <p class="hint">Tip: type <b>overdue</b> in search to list late actions.</p>
     </aside>
 
     <section class="content">
@@ -86,12 +87,12 @@
 
   <dialog id="dlg">
     <form method="dialog" id="frm">
-      <h3 id="dlg-title">Éditer opportunité</h3>
+      <h3 id="dlg-title">Edit opportunity</h3>
       <div class="grid-2">
         <label>ID (auto) <input name="Opportunity.ID" id="f-id" required readonly></label>
         <label>Name<input name="Opportunity.Name" required></label>
 
-        <label>Company (nom)
+        <label>Company (name)
           <select id="f-company-name"></select>
         </label>
         <label>CompanyID
@@ -110,15 +111,23 @@
       </div>
       <label class="block">Notes<textarea name="Opportunity.Notes" rows="4"></textarea></label>
       <menu>
-        <button id="dlg-cancel" value="cancel">Annuler</button>
-        <button id="dlg-delete" class="warn" value="delete">Supprimer</button>
-        <button id="dlg-ok" value="ok" class="primary">Enregistrer</button>
+        <button id="dlg-cancel" value="cancel">Cancel</button>
+        <button id="dlg-delete" class="warn" value="delete">Delete</button>
+        <button id="dlg-ok" value="ok" class="primary">Save</button>
       </menu>
     </form>
   </dialog>
 
   <footer class="footer">
-    <span id="status">Prêt.</span>
+    <span id="status">Ready.</span>
   </footer>
+
+  <section id="debug-panel" class="debug hidden" aria-hidden="true">
+    <div class="debug-head">
+      <strong>Debug console</strong>
+      <button id="debug-clear" title="Clear log">Clear</button>
+    </div>
+    <pre id="debug-log"></pre>
+  </section>
 </body>
 </html>
