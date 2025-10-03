@@ -7,38 +7,118 @@
   <meta name="theme-color" content="#1e6091">
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="styles.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
   <script defer src="app.js"></script>
 </head>
 <body>
   <header class="topbar">
     <div class="title">
       <h1>Opportunities Manager</h1>
-      <span class="version">Version V2 - 03/10/2025 18:20 (heure française)</span>
+      <span class="version">Version V3-Avancée - 03/10/2025 18:40 (heure française)</span>
     </div>
     <div class="actions">
-      <button id="btn-new">➕ Nouveau</button>
+      <button id="btn-new" title="Nouvelle opportunité">➕ Nouveau</button>
+      <button id="btn-save" title="Enregistrer local">💾 Enregistrer</button>
+      <div class="split">
+        <button id="btn-export-xlsx">⬇️ XLSX</button>
+        <button id="btn-export-csv">⬇️ CSV</button>
+        <label class="import-label">⬆️ Import
+          <input id="file-input" type="file" accept=".xlsx,.csv" />
+        </label>
+      </div>
+      <button id="btn-reset" class="warn" title="Réinitialiser (local)">♻️ Reset</button>
     </div>
   </header>
+
   <main class="container">
+    <aside class="panel">
+      <h2>Filtres</h2>
+      <div class="field">
+        <label>Recherche</label>
+        <input type="search" id="q" placeholder="ID, nom, notes…">
+      </div>
+      <div class="grid-2">
+        <div class="field">
+          <label>Client</label>
+          <select id="f-client"><option value="">(tous)</option></select>
+        </div>
+        <div class="field">
+          <label>Owner</label>
+          <select id="f-owner"><option value="">(tous)</option></select>
+        </div>
+        <div class="field">
+          <label>Étape</label>
+          <select id="f-step"><option value="">(toutes)</option></select>
+        </div>
+        <div class="field">
+          <label>Prochaine action ⩾</label>
+          <input id="f-nextdate" type="date">
+        </div>
+      </div>
+      <p class="hint">Astuce : tape <b>overdue</b> dans la recherche pour voir les actions en retard.</p>
+    </aside>
+
     <section class="content">
       <table id="tbl">
-        <thead><tr><th>Opportunity.ID</th><th>Opportunity.Name</th><th>Opportunity.Client</th><th></th></tr></thead>
+        <thead>
+          <tr>
+            <th>Opportunity.ID</th>
+            <th>Opportunity.Name</th>
+            <th>Opportunity.CompanyID</th>
+            <th>Opportunity.ContactID</th>
+            <th>Opportunity.Client</th>
+            <th>Opportunity.Owner</th>
+            <th>Opportunity.SalesStep</th>
+            <th>Opportunity.SalesCycleLastChangeDate</th>
+            <th>Opportunity.NextActionDate</th>
+            <th>Opportunity.NextAction</th>
+            <th>Opportunity.ClosingDate</th>
+            <th>Opportunity.ClosingValue</th>
+            <th>Opportunity.Notes</th>
+            <th></th>
+          </tr>
+        </thead>
         <tbody id="tbody"></tbody>
       </table>
     </section>
   </main>
+
   <dialog id="dlg">
     <form method="dialog" id="frm">
       <h3 id="dlg-title">Éditer opportunité</h3>
-      <label>ID <input name="Opportunity.ID" id="f-id" readonly></label>
-      <label>Name <input name="Opportunity.Name"></label>
-      <label>Client <input name="Opportunity.Client"></label>
+      <div class="grid-2">
+        <label>ID (auto) <input name="Opportunity.ID" id="f-id" required readonly></label>
+        <label>Name<input name="Opportunity.Name" required></label>
+
+        <label>Company (nom)
+          <select id="f-company-name"></select>
+        </label>
+        <label>CompanyID
+          <input name="Opportunity.CompanyID" id="f-company-id" placeholder="CMPY-000001">
+        </label>
+
+        <label>ContactID<input name="Opportunity.ContactID" placeholder="CON-000001"></label>
+        <label>Client<select name="Opportunity.Client" id="c-client" required></select></label>
+        <label>Owner<select name="Opportunity.Owner" id="c-owner" required></select></label>
+        <label>SalesStep<select name="Opportunity.SalesStep" id="c-step" required></select></label>
+        <label>SalesCycleLastChangeDate><input type="date" name="Opportunity.SalesCycleLastChangeDate"></label>
+        <label>NextActionDate><input type="date" name="Opportunity.NextActionDate"></label>
+        <label>NextAction<input name="Opportunity.NextAction"></label>
+        <label>ClosingDate><input type="date" name="Opportunity.ClosingDate"></label>
+        <label>ClosingValue><input type="number" step="0.01" name="Opportunity.ClosingValue" placeholder="€"></label>
+      </div>
+      <label class="block">Notes<textarea name="Opportunity.Notes" rows="4"></textarea></label>
       <menu>
         <button id="dlg-cancel" value="cancel">Annuler</button>
-        <button id="dlg-ok" value="ok">Enregistrer</button>
+        <button id="dlg-delete" class="warn" value="delete">Supprimer</button>
+        <button id="dlg-ok" value="ok" class="primary">Enregistrer</button>
       </menu>
     </form>
   </dialog>
-  <footer class="footer"><span id="status">Prêt.</span></footer>
+
+  <footer class="footer">
+    <span id="status">Prêt.</span>
+  </footer>
 </body>
 </html>
