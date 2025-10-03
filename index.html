@@ -15,7 +15,7 @@
   <header class="topbar">
     <div class="title">
       <h1>Opportunities Manager</h1>
-      <span class="version">Version V3.2 - 03/10/2025 19:10 (French time)</span>
+      <span class="version">Version V3.2.1 - 03/10/2025 19:22 (French time)</span>
     </div>
     <div class="actions">
       <button id="btn-new" title="Create opportunity">➕ New</button>
@@ -23,7 +23,7 @@
       <div class="split">
         <button id="btn-export-xlsx" title="Download Excel file">⬇️ Export Excel (.xlsx)</button>
         <button id="btn-export-csv" title="Download CSV file">⬇️ Export CSV</button>
-        <label class="import-label">⬆️ Import
+        <label class="import-label">⬆️ Upload Excel
           <input id="file-input" type="file" accept=".xlsx,.csv" />
         </label>
       </div>
@@ -125,7 +125,10 @@
   <section id="debug-panel" class="debug hidden" aria-hidden="true">
     <div class="debug-head">
       <strong>Debug console</strong>
-      <button id="debug-clear" title="Clear log">Clear</button>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button id="debug-copy" title="Copy log">Copy</button>
+        <button id="debug-clear" title="Clear log">Clear</button>
+      </div>
     </div>
     <pre id="debug-log"></pre>
   </section>

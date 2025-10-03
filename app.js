@@ -1,7 +1,6 @@
 /* Opportunities Manager
-   Version V3.2 - 03/10/2025 19:10 (French time)
-   V3.2: Debug panel toggle, clearer export button text, full English UI.
-   Includes robust import, filters, auto IDs, company dropdown, local storage, dialog polyfill.
+   Version V3.2.1 - 03/10/2025 19:22 (French time)
+   V3.2.1: Debug copy button, 'Upload Excel' label, robust header mapping, English UI.
 */
 (() => {
   const DEBUG = true;
@@ -16,13 +15,12 @@
   let Companies = loadCompanies();
   let editingIndex = -1;
 
-  // Debug panel
+  // Debug panel helpers
   function dbg(...args){
     if (!DEBUG) return;
     console.log("[OppMgr]", ...args);
-    const p = document.getElementById('debug-panel');
     const log = document.getElementById('debug-log');
-    if (p && log) {
+    if (log) {
       const line = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
       log.textContent += (log.textContent ? "\n" : "") + line;
       log.scrollTop = log.scrollHeight;
@@ -59,10 +57,12 @@
     on('#btn-export-csv','click', exportCSV);
     on('#file-input','change', handleImport);
 
-    // Debug toggle
+    // Debug toggle + clear + copy
     const btnDbg = qs('#btn-debug');
     const dbgPanel = qs('#debug-panel');
     const dbgClear = qs('#debug-clear');
+    const dbgCopy  = qs('#debug-copy');
+
     if (btnDbg && dbgPanel) {
       btnDbg.addEventListener('click', () => {
         const hidden = dbgPanel.classList.toggle('hidden');
@@ -72,6 +72,22 @@
     }
     if (dbgClear) dbgClear.addEventListener('click', () => {
       const log = qs('#debug-log'); if (log) log.textContent = "";
+    });
+    if (dbgCopy) dbgCopy.addEventListener('click', async () => {
+      const log = qs('#debug-log'); if (!log) return;
+      try {
+        await navigator.clipboard.writeText(log.textContent || "");
+        alert("Debug log copied to clipboard.");
+      } catch (e) {
+        // Fallback: select text
+        const r = document.createRange();
+        r.selectNodeContents(log);
+        const sel = window.getSelection();
+        sel.removeAllRanges(); sel.addRange(r);
+        document.execCommand("copy");
+        sel.removeAllRanges();
+        alert("Debug log selected. If copying failed, long-press and Copy.");
+      }
     });
 
     // Dialog refs
@@ -100,7 +116,7 @@
     if (fCoName) fCoName.addEventListener('change', ()=>{ const n=fCoName.value; if (Companies[n]) fCoId.value=Companies[n]; });
 
     render();
-    status("Ready. Use Import to load your Excel file.");
+    status("Ready. Use 'Upload Excel' to load your file.");
     dbg("App started", {rows: rows.length, companies: Object.keys(Companies).length});
   }
 
@@ -180,7 +196,7 @@
     if (idx>=0 && confirm("Delete this opportunity?")) { rows.splice(idx,1); render(); saveLocal(); }
   }
 
-  // Import / Export
+  // --- Robust Import with header normalization ---
   async function handleImport(ev) {
     const file = ev.target.files[0];
     if (!file) return;
@@ -265,52 +281,72 @@
     }
   }
 
-  // Header normalization
+  // New robust header normalization (supports prefixes like 'Opportunities.OpportunityID')
   function normalizeHeader(h) {
-    if (!h) return "";
-    const s = h.toString().trim().toLowerCase().replace(/\s+/g," ");
+    if (h == null) return "";
+    let original = String(h).trim();
+    let w = original.toLowerCase().trim();
+
+    // Strip table prefixes like 'opportunities.', 'opportunity.', 'companies.', 'contacts.', 'validationlists.'
+    const parts = w.split(".");
+    const known = new Set(["opportunities","opportunity","companies","contacts","validationlists"]);
+    if (parts.length > 1 && known.has(parts[0])) {
+      w = parts.slice(1).join("."); // keep the remainder
+    }
+
+    // Collapse punctuation and spaces
+    w = w.replace(/[\.\-_]/g, " ").replace(/\s+/g, " ").trim();
+
+    // Aliases -> canonical
     const map = {
-      "opportunity.id": "Opportunity.ID",
-      "id": "Opportunity.ID",
       "opportunity id": "Opportunity.ID",
+      "opportunityid": "Opportunity.ID",
+      "id": "Opportunity.ID",
 
-      "opportunity.name": "Opportunity.Name",
       "name": "Opportunity.Name",
-
-      "opportunity.client": "Opportunity.Client",
-      "client": "Opportunity.Client",
-
-      "opportunity.salesstep": "Opportunity.SalesStep",
-      "salesstep": "Opportunity.SalesStep",
-      "step": "Opportunity.SalesStep",
-
-      "opportunity.nextactiondate": "Opportunity.NextActionDate",
-      "nextactiondate": "Opportunity.NextActionDate",
-      "next action date": "Opportunity.NextActionDate",
-
-      "opportunity.nextaction": "Opportunity.NextAction",
-      "nextaction": "Opportunity.NextAction",
-      "next action": "Opportunity.NextAction",
-
-      "opportunity.companyid": "Opportunity.CompanyID",
-      "companyid": "Opportunity.CompanyID",
-
-      "opportunity.contactid": "Opportunity.ContactID",
-      "contactid": "Opportunity.ContactID",
-
-      "opportunity.owner": "Opportunity.Owner",
       "owner": "Opportunity.Owner",
 
-      "opportunity.closingdate": "Opportunity.ClosingDate",
+      "next action date": "Opportunity.NextActionDate",
+      "nextactiondate": "Opportunity.NextActionDate",
+      "next action": "Opportunity.NextAction",
+      "nextaction": "Opportunity.NextAction",
+
+      "notes": "Opportunity.Notes",
+
+      "company id": "Opportunity.CompanyID",
+      "companyid": "Opportunity.CompanyID",
+
+      "lead source": "Opportunity.LeadSource",
+      "leadsource": "Opportunity.LeadSource",
+
+      "client": "Opportunity.Client",
+      "contact id": "Opportunity.ContactID",
+      "contactid": "Opportunity.ContactID",
+
+      "sales step": "Opportunity.SalesStep",
+      "salesstep": "Opportunity.SalesStep",
+
+      "closing date": "Opportunity.ClosingDate",
       "closingdate": "Opportunity.ClosingDate",
 
-      "opportunity.closingvalue": "Opportunity.ClosingValue",
+      "closing value": "Opportunity.ClosingValue",
       "closingvalue": "Opportunity.ClosingValue",
 
-      "opportunity.notes": "Opportunity.Notes",
-      "notes": "Opportunity.Notes"
+      "sales cycle last change date": "Opportunity.SalesCycleLastChangeDate",
+      "salescyclelastchangedate": "Opportunity.SalesCycleLastChangeDate"
     };
-    return map[s] || "";
+
+    if (map[w]) return map[w];
+
+    // If still prefixed like 'opportunityname' (no spaces), attempt tail mapping
+    if (/^opportunity[a-z]/.test(w)) {
+      const tail = w.replace(/^opportunity/, "").trim();
+      const hit = map[tail] || map[tail.replace(/\s+/g,"")];
+      if (hit) return hit;
+      if (tail === "id") return "Opportunity.ID";
+    }
+
+    return ""; // ignore unknown columns
   }
 
   // Export
