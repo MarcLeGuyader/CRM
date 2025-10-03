@@ -1,0 +1,32 @@
+*{box-sizing:border-box}html,body{margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Ubuntu,'Helvetica Neue',Arial,sans-serif}
+:root{--brand:#1e6091;--ink:#0b1320;--muted:#617387;--bg:#f7fafc;--ok:#2f9e44;--warn:#c92a2a}
+.topbar{display:flex;align-items:center;justify-content:space-between;background:var(--brand);color:#fff;padding:10px 12px;gap:8px;position:sticky;top:0}
+.topbar h1{font-size:18px;margin:0}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+button,.import-label{background:#fff;border:1px solid #e1e6eb;border-radius:8px;padding:8px 10px;font-size:14px;cursor:pointer}
+button.primary{background:var(--brand);color:#fff;border-color:var(--brand)}
+button.warn{color:#fff;background:var(--warn);border-color:var(--warn)}
+.split{display:flex;gap:6px;align-items:center}
+.import-label{display:inline-flex;align-items:center;gap:6px}
+.import-label input{display:none}
+.container{display:grid;grid-template-columns:280px 1fr;gap:12px;padding:12px;background:var(--bg);min-height:calc(100vh - 56px)}
+.panel{background:#fff;border:1px solid #e1e6eb;border-radius:12px;padding:12px}
+.panel h2{margin:0 0 8px 0;font-size:16px}
+.field{display:flex;flex-direction:column;gap:4px;margin:6px 0}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.hint{color:var(--muted);font-size:12px}
+.content{overflow:auto;border:1px solid #e1e6eb;border-radius:12px;background:#fff}
+table{width:100%;border-collapse:separate;border-spacing:0}
+thead th{position:sticky;top:0;background:#f0f4f8;border-bottom:1px solid #e1e6eb;padding:8px;text-align:left;font-size:12px}
+tbody td{border-bottom:1px solid #f2f2f2;padding:8px;font-size:13px;vertical-align:top}
+tbody tr:hover{background:#fbfdff}
+td .row-actions{display:flex;gap:6px}
+dialog{border:none;border-radius:12px;width:min(860px,96vw);padding:0;overflow:hidden}
+#frm{padding:12px}
+#frm h3{margin:0 0 8px 0}
+#frm label{font-size:13px;color:var(--ink);display:flex;flex-direction:column;gap:4px}
+#frm input, #frm select, #frm textarea{border:1px solid #d8dee6;border-radius:8px;padding:8px;font-size:14px}
+#frm .block{margin-top:8px}
+menu{display:flex;justify-content:flex-end;gap:8px;padding:12px;background:#f7f9fb;margin:12px -12px -12px -12px}
+.footer{display:flex;gap:8px;align-items:center;justify-content:center;padding:10px;color:var(--muted);font-size:12px}
+@media (max-width:1000px){.container{grid-template-columns:1fr}}

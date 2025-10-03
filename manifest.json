@@ -1,0 +1,9 @@
+{
+  "name": "Opportunities Manager",
+  "short_name": "Opp Manager",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1e6091",
+  "icons": []
+}
