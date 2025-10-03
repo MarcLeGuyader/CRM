@@ -3,171 +3,125 @@
 */
 
 (() => {
+  // --- Constantes & état persistant ---
   const KEY_ROWS = "opportunities-db-v2";
   const KEY_COMP = "companies-db-v1";
-  const status = (msg) => { const s=document.getElementById('status'); if(s) s.textContent = msg; };
 
-  // Listes de validation
+  // Listes (à adapter si besoin)
   const SalesStepList = ["Discovery","Qualified","Solution selling","Negotiation","Closing","Won","Lost"];
   const OwnerList = ["Marc","Sam","Sven"];
   const ClientList = ["ResQuant","PUFsecurity","Aico","eShard","IOTR"];
 
-  // Entreprises (name -> id), alimentées à l'import si feuille "Companies" présente
-  let Companies = loadCompanies(); // ex: { "Axis Communications": "CMPY-000023" }
-
-  // État
+  // État mémoire
   let rows = loadRows();
+  let Companies = loadCompanies(); // { "Nom Société": "CMPY-000123", ... }
   let editingIndex = -1;
 
-  // Éléments
-  const tbody = document.getElementById('tbody');
-  const filters = {
-    q: document.getElementById('q'),
-    client: document.getElementById('f-client'),
-    owner: document.getElementById('f-owner'),
-    step: document.getElementById('f-step'),
-    nextdate: document.getElementById('f-nextdate'),
-  };
+  // Références DOM (remplies dans init)
+  let tbody, filters, dlg, frm, btnOk, btnDel, btnCancel, fId, fCoName, fCoId;
 
-  if (!tbody) {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
-  }
+  // --- Bootstrap UI une fois le DOM prêt ---
+  document.addEventListener("DOMContentLoaded", init);
 
-  function init(){
-    // Remplir filtres
+  function init() {
+    // Sélecteurs principaux
+    tbody = document.getElementById('tbody');
+    filters = {
+      q: document.getElementById('q'),
+      client: document.getElementById('f-client'),
+      owner: document.getElementById('f-owner'),
+      step: document.getElementById('f-step'),
+      nextdate: document.getElementById('f-nextdate'),
+    };
+
+    // Filtres
     fillSelect(filters.client, ["", ...ClientList]);
     fillSelect(filters.owner, ["", ...OwnerList]);
     fillSelect(filters.step, ["", ...SalesStepList]);
-
-    // Bind UI
-    document.getElementById('btn-new').addEventListener('click', () => openDialog());
-    document.getElementById('btn-save').addEventListener('click', () => saveLocal());
-    document.getElementById('btn-reset').addEventListener('click', resetLocal);
-    document.getElementById('btn-export-xlsx').addEventListener('click', exportXLSX);
-    document.getElementById('btn-export-csv').addEventListener('click', exportCSV);
-    document.getElementById('file-input').addEventListener('change', handleImport);
     Object.values(filters).forEach(el => el && el.addEventListener('input', render));
 
-    // PWA
+    // Boutons barre du haut
+    qs('#btn-new').addEventListener('click', () => openDialog());
+    qs('#btn-save').addEventListener('click', () => saveLocal());
+    qs('#btn-reset').addEventListener('click', resetLocal);
+    qs('#btn-export-xlsx').addEventListener('click', exportXLSX);
+    qs('#btn-export-csv').addEventListener('click', exportCSV);
+    qs('#file-input').addEventListener('change', handleImport);
+
+    // PWA install (optionnel)
+    const install = qs('#install');
     let deferredPrompt;
-    const install = document.getElementById('install');
-    window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredPrompt = e; if(install) install.style.display='inline'; });
-    if(install){
+    window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredPrompt = e; if (install) install.style.display='inline'; });
+    if (install) {
       install.addEventListener('click', async (e) => { e.preventDefault(); if (deferredPrompt){ deferredPrompt.prompt(); deferredPrompt = null; } });
     }
 
-    // Dialog
-    const dlg = document.getElementById('dlg');
-    const frm = document.getElementById('frm');
-    const btnOk = document.getElementById('dlg-ok');
-    const btnDel = document.getElementById('dlg-delete');
-    const btnCancel = document.getElementById('dlg-cancel');
-    const fId = document.getElementById('f-id');
-    const fCoName = document.getElementById('f-company-name');
-    const fCoId = document.getElementById('f-company-id');
+    // Dialog éléments
+    dlg = qs('#dlg');
+    frm = qs('#frm');
+    btnOk = qs('#dlg-ok');
+    btnDel = qs('#dlg-delete');
+    btnCancel = qs('#dlg-cancel');
+    fId = qs('#f-id');
+    fCoName = qs('#f-company-name');
+    fCoId = qs('#f-company-id');
 
-    // Init dropdown des sociétés
+    // Actions du dialog
+    btnCancel.addEventListener('click', (e) => { e.preventDefault(); dlg.close('cancel'); });
+    btnOk.addEventListener('click', onSaveDialog);
+    btnDel.addEventListener('click', onDeleteDialog);
+
+    // Dropdown sociétés + liaison nom→ID
     refreshCompanySelect();
-
-    // ✅ Annuler
-    btnCancel.addEventListener('click', (e) => {
-      e.preventDefault();
-      dlg.close('cancel');
-    });
-
-    // ✅ Enregistrer
-    btnOk.addEventListener('click', (e) => {
-      e.preventDefault();
-      const data = formToObj(frm);
-      if (!/^[A-Z]{3}-\d{6}$/.test(data["Opportunity.ID"] || "")) {
-        alert("Opportunity.ID doit suivre le format OPP-000123.");
-        return;
-      }
-      if (editingIndex >= 0) {
-        rows[editingIndex] = data;
-      } else {
-        if (rows.some(x => x["Opportunity.ID"] === data["Opportunity.ID"])) {
-          alert("Cet ID existe déjà.");
-          return;
-        }
-        rows.push(data);
-      }
-      dlg.close('ok');
-      render(); saveLocal();
-    });
-
-    // ✅ Supprimer
-    btnDel.addEventListener('click', (e) => {
-      e.preventDefault();
-      if (editingIndex < 0) return;
-      if (!confirm("Supprimer cette opportunité ?")) return;
-      rows.splice(editingIndex,1);
-      dlg.close('delete');
-      render(); saveLocal();
-    });
-
-    // ✅ Company (nom) → auto CompanyID
     fCoName.addEventListener('change', () => {
       const name = fCoName.value;
       if (Companies[name]) fCoId.value = Companies[name];
     });
 
+    // Premier rendu
     render();
+    status("Prêt.");
   }
 
-  function fillSelect(sel, arr) {
-    if (!sel) return;
-    sel.innerHTML = "";
-    for (const v of arr) {
-      const o = document.createElement('option');
-      o.value = v;
-      o.textContent = v || "(tous)";
-      sel.appendChild(o);
+  // --- Handlers dialog ---
+  function onSaveDialog(e) {
+    e.preventDefault();
+    const data = formToObj(frm);
+
+    // Validation ID
+    if (!/^[A-Z]{3}-\d{6}$/.test(data["Opportunity.ID"] || "")) {
+      alert("Opportunity.ID doit suivre le format OPP-000123.");
+      return;
     }
-  }
 
-  function refreshCompanySelect() {
-    const fCoName = document.getElementById('f-company-name');
-    if (!fCoName) return;
-    fCoName.innerHTML = "";
-    const keys = Object.keys(Companies).sort((a,b)=>a.localeCompare(b));
-    const emptyOpt = document.createElement('option'); emptyOpt.value=""; emptyOpt.textContent="(sélectionner)";
-    fCoName.appendChild(emptyOpt);
-    for (const name of keys) {
-      const o = document.createElement('option');
-      o.value = name;
-      o.textContent = name;
-      fCoName.appendChild(o);
+    if (editingIndex >= 0) {
+      rows[editingIndex] = data;
+    } else {
+      if (rows.some(x => x["Opportunity.ID"] === data["Opportunity.ID"])) {
+        alert("Cet ID existe déjà.");
+        return;
+      }
+      rows.push(data);
     }
+
+    dlg.close('ok');
+    render(); saveLocal();
   }
 
-  function loadRows() {
-    try { return JSON.parse(localStorage.getItem(KEY_ROWS)) || []; } catch { return []; }
-  }
-  function saveLocal() {
-    localStorage.setItem(KEY_ROWS, JSON.stringify(rows));
-    localStorage.setItem(KEY_COMP, JSON.stringify(Companies));
-    status("Données enregistrées localement.");
-  }
-  function resetLocal() {
-    if (!confirm("Réinitialiser les données locales ?")) return;
-    localStorage.removeItem(KEY_ROWS);
-    localStorage.removeItem(KEY_COMP);
-    rows = [];
-    Companies = {};
-    refreshCompanySelect();
-    render();
-    status("Local storage réinitialisé.");
-  }
-  function loadCompanies() {
-    try { return JSON.parse(localStorage.getItem(KEY_COMP)) || {}; } catch { return {}; }
+  function onDeleteDialog(e) {
+    e.preventDefault();
+    if (editingIndex < 0) return;
+    if (!confirm("Supprimer cette opportunité ?")) return;
+    rows.splice(editingIndex, 1);
+    dlg.close('delete');
+    render(); saveLocal();
   }
 
+  // --- Rendu tableau ---
   function render() {
     if (!tbody) return;
     tbody.innerHTML = "";
+
     const q = (filters.q?.value || "").trim().toLowerCase();
     const fClient = filters.client?.value || "";
     const fOwner = filters.owner?.value || "";
@@ -204,41 +158,37 @@
       ];
       for (const k of keys) {
         const td = document.createElement('td');
-        td.textContent = r[k] || "";
+        td.textContent = r[k] ?? "";
         tr.appendChild(td);
       }
-      const tdA = document.createElement('td');
-      tdA.className = "row-actions";
-      const btnE = document.createElement('button'); btnE.textContent = "✏️"; btnE.title = "Éditer"; btnE.addEventListener('click', () => openDialog(r));
-      const btnD = document.createElement('button'); btnD.textContent = "🗑"; btnD.title = "Supprimer"; btnD.addEventListener('click', () => del(r));
-      tdA.append(btnE, btnD);
-      tr.appendChild(tdA);
+      const tdActions = document.createElement('td');
+      tdActions.className = "row-actions";
+      const bEdit = document.createElement('button'); bEdit.textContent = "✏️"; bEdit.title = "Éditer"; bEdit.addEventListener('click', () => openDialog(r));
+      const bDel = document.createElement('button');  bDel.textContent = "🗑"; bDel.title = "Supprimer"; bDel.addEventListener('click', () => delRow(r));
+      tdActions.append(bEdit, bDel);
+      tr.appendChild(tdActions);
       tbody.appendChild(tr);
     }
 
     status(`${filtered.length} opportunité(s) affichée(s) / ${rows.length}`);
   }
 
+  // --- Ouvrir / supprimer ---
   function openDialog(row) {
-    const frm = document.getElementById('frm');
-    const dlg = document.getElementById('dlg');
-    const btnDel = document.getElementById('dlg-delete');
-    const fId = document.getElementById('f-id');
-    const fCoName = document.getElementById('f-company-name');
-    const fCoId = document.getElementById('f-company-id');
-
     frm.reset();
     editingIndex = -1;
-    fillSelect(document.getElementById('c-client'), ClientList);
-    fillSelect(document.getElementById('c-owner'), OwnerList);
-    fillSelect(document.getElementById('c-step'), SalesStepList);
+
+    // (Re)remplir enums
+    fillSelect(qs('#c-client'), ClientList);
+    fillSelect(qs('#c-owner'), OwnerList);
+    fillSelect(qs('#c-step'), SalesStepList);
     refreshCompanySelect();
 
     if (!row) {
-      const id = nextId();
-      fId.value = id;
+      // Nouveau → ID auto
+      fId.value = nextId();
       btnDel.style.display = "none";
-      document.getElementById('dlg-title').textContent = "Nouvelle opportunité";
+      qs('#dlg-title').textContent = "Nouvelle opportunité";
       fCoName.value = "";
       fCoId.value = "";
     } else {
@@ -246,19 +196,47 @@
       for (const el of frm.elements) {
         if (el.name && row[el.name] != null) el.value = row[el.name];
       }
+      // Remonter nom société depuis CompanyID si possible
       const name = Object.keys(Companies).find(n => Companies[n] === row["Opportunity.CompanyID"]);
       fCoName.value = name || "";
       btnDel.style.display = "inline-block";
-      document.getElementById('dlg-title').textContent = "Éditer opportunité";
+      qs('#dlg-title').textContent = "Éditer opportunité";
     }
+
     dlg.showModal();
   }
 
-  function del(row) {
+  function delRow(row) {
     const idx = rows.findIndex(x => x["Opportunity.ID"] === row["Opportunity.ID"]);
     if (idx >= 0 && confirm("Supprimer cette opportunité ?")) {
-      rows.splice(idx,1);
+      rows.splice(idx, 1);
       render(); saveLocal();
+    }
+  }
+
+  // --- Helpers UI / Storage ---
+  function fillSelect(sel, arr) {
+    if (!sel) return;
+    sel.innerHTML = "";
+    for (const v of arr) {
+      const o = document.createElement('option');
+      o.value = v;
+      o.textContent = v || "(tous)";
+      sel.appendChild(o);
+    }
+  }
+
+  function refreshCompanySelect() {
+    if (!fCoName) return;
+    fCoName.innerHTML = "";
+    const names = Object.keys(Companies).sort((a,b)=>a.localeCompare(b));
+    const empty = document.createElement('option'); empty.value = ""; empty.textContent = "(sélectionner)";
+    fCoName.appendChild(empty);
+    for (const n of names) {
+      const o = document.createElement('option');
+      o.value = n;
+      o.textContent = n;
+      fCoName.appendChild(o);
     }
   }
 
@@ -285,9 +263,138 @@
     return prefix + next;
   }
 
-  // --- Import/Export ---
-  async function exportXLSX() { /* inchangé */ }
-  async function exportCSV() { /* inchangé */ }
-  async function handleImport(ev) { /* inchangé */ }
-  function parseCSVLine(line) { /* inchangé */ }
+  function loadRows() {
+    try { return JSON.parse(localStorage.getItem(KEY_ROWS)) || []; } catch { return []; }
+  }
+  function saveLocal() {
+    localStorage.setItem(KEY_ROWS, JSON.stringify(rows));
+    localStorage.setItem(KEY_COMP, JSON.stringify(Companies));
+    status("Données enregistrées localement.");
+  }
+  function resetLocal() {
+    if (!confirm("Réinitialiser les données locales ?")) return;
+    localStorage.removeItem(KEY_ROWS);
+    localStorage.removeItem(KEY_COMP);
+    rows = [];
+    Companies = {};
+    refreshCompanySelect();
+    render();
+    status("Local storage réinitialisé.");
+  }
+  function loadCompanies() {
+    try { return JSON.parse(localStorage.getItem(KEY_COMP)) || {}; } catch { return {}; }
+  }
+
+  // --- Import / Export ---
+  async function exportXLSX() {
+    if (!window.XLSX) { alert("Librairie XLSX non chargée (connexion requise)."); return; }
+    const wb = XLSX.utils.book_new();
+    const headers = ["Opportunity.ID","Opportunity.Name","Opportunity.CompanyID","Opportunity.ContactID","Opportunity.Client","Opportunity.Owner","Opportunity.SalesStep","Opportunity.SalesCycleLastChangeDate","Opportunity.NextActionDate","Opportunity.NextAction","Opportunity.ClosingDate","Opportunity.ClosingValue","Opportunity.Notes"];
+    const data = [headers, ...rows.map(r => headers.map(h => r[h] ?? ""))];
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    XLSX.utils.book_append_sheet(wb, ws, "Opportunities");
+
+    // Ajoute la feuille Companies si on a des paires nom/ID
+    const compEntries = Object.entries(Companies);
+    if (compEntries.length) {
+      const cheaders = ["Company.Name","Company.ID"];
+      const cdata = [cheaders, ...compEntries.map(([name, id]) => [name, id])];
+      const cws = XLSX.utils.aoa_to_sheet(cdata);
+      XLSX.utils.book_append_sheet(wb, cws, "Companies");
+    }
+
+    const out = XLSX.write(wb, {bookType:"xlsx", type:"array"});
+    saveAs(new Blob([out], {type:"application/octet-stream"}), "Opportunities.xlsx");
+  }
+
+  async function exportCSV() {
+    if (!window.XLSX) { alert("Librairie XLSX non chargée (connexion requise)."); return; }
+    const headers = ["Opportunity.ID","Opportunity.Name","Opportunity.CompanyID","Opportunity.ContactID","Opportunity.Client","Opportunity.Owner","Opportunity.SalesStep","Opportunity.SalesCycleLastChangeDate","Opportunity.NextActionDate","Opportunity.NextAction","Opportunity.ClosingDate","Opportunity.ClosingValue","Opportunity.Notes"];
+    const lines = [headers.join(","), ...rows.map(r => headers.map(h => csvEscape(r[h])).join(","))];
+    const blob = new Blob([lines.join("\n")], {type:"text/csv;charset=utf-8"});
+    saveAs(blob, "Opportunities.csv");
+  }
+
+  function csvEscape(v) {
+    if (v == null) return "";
+    const s = String(v);
+    if (/[",\n]/.test(s)) return '"' + s.replace(/"/g,'""') + '"';
+    return s;
+  }
+
+  async function handleImport(ev) {
+    const file = ev.target.files[0];
+    if (!file) return;
+    if (!window.XLSX) { alert("Librairie XLSX non chargée (connexion requise)."); return; }
+    const buf = await file.arrayBuffer();
+    let importedRows = [];
+    let importedCompanies = {};
+
+    if (file.name.endsWith(".csv")) {
+      const txt = new TextDecoder("utf-8").decode(new Uint8Array(buf));
+      const lines = txt.split(/\r?\n/).filter(Boolean);
+      const headers = lines[0].split(",");
+      for (let i = 1; i < lines.length; i++) {
+        const vals = parseCSVLine(lines[i]);
+        const obj = {};
+        headers.forEach((h, idx) => obj[h.trim()] = vals[idx] ?? "");
+        importedRows.push(obj);
+      }
+    } else {
+      const wb = XLSX.read(buf, {type:"array"});
+      // Opportunities
+      const oppSheet = wb.Sheets["Opportunities"] || wb.Sheets[wb.SheetNames[0]];
+      if (oppSheet) {
+        const aoa = XLSX.utils.sheet_to_json(oppSheet, {header:1});
+        const headers = aoa[0] || [];
+        for (let i = 1; i < aoa.length; i++) {
+          const row = aoa[i];
+          if (!row || !row.length) continue;
+          const obj = {};
+          headers.forEach((h, idx) => obj[h] = row[idx] ?? "");
+          importedRows.push(obj);
+        }
+      }
+      // Companies
+      const compSheet = wb.Sheets["Companies"];
+      if (compSheet) {
+        const aoa = XLSX.utils.sheet_to_json(compSheet, {header:1});
+        for (let i = 1; i < aoa.length; i++) {
+          const row = aoa[i];
+          const name = row[0]; const id = row[1];
+          if (name && id) importedCompanies[name] = id;
+        }
+      }
+    }
+
+    // Upsert par ID, auto-ID si non valide
+    let countNew = 0, countUpd = 0;
+    for (const r of importedRows) {
+      if (!/^[A-Z]{3}-\d{6}$/.test(r["Opportunity.ID"] || "")) {
+        r["Opportunity.ID"] = nextId();
+      }
+      const idx = rows.findIndex(x => x["Opportunity.ID"] === r["Opportunity.ID"]);
+      if (idx >= 0) { rows[idx] = r; countUpd++; } else { rows.push(r); countNew++; }
+    }
+    // Merge companies
+    for (const [n,id] of Object.entries(importedCompanies)) Companies[n] = id;
+
+    refreshCompanySelect();
+    render(); saveLocal();
+    status(`Import terminé: ${countNew} ajout(s), ${countUpd} mise(s) à jour. Entreprises: ${Object.keys(importedCompanies).length} intégrées.`);
+    ev.target.value = "";
+  }
+
+  function parseCSVLine(line) {
+    const out = [], re = /(?:^|,)(?:"([^"]*(?:""[^"]*)*)"|([^",]*))/g;
+    let m;
+    while ((m = re.exec(line)) !== null) {
+      out.push((m[1] || m[2] || "").replace(/""/g, '"'));
+    }
+    return out;
+  }
+
+  // --- Utils ---
+  function qs(sel){ return document.querySelector(sel); }
+  function status(msg){ const el = qs('#status'); if (el) el.textContent = msg; }
 })();
