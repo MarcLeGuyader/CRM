@@ -7,32 +7,38 @@
   <meta name="theme-color" content="#1e6091">
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="styles.css">
-  <script defer src="https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
   <script defer src="app.js"></script>
 </head>
 <body>
   <header class="topbar">
     <div class="title">
       <h1>Opportunities Manager</h1>
-      <!-- Numéro de version inscrit en dur -->
-      <span class="version">Version 03/10/2025 16:49 (heure française)</span>
+      <span class="version">Version V2 - 03/10/2025 18:20 (heure française)</span>
     </div>
     <div class="actions">
-      <button id="btn-new" title="Nouvelle opportunité">➕ Nouveau</button>
-      <button id="btn-save" title="Enregistrer">💾 Enregistrer</button>
-      <div class="split">
-        <button id="btn-export-xlsx" title="Exporter .xlsx">⬇️ XLSX</button>
-        <button id="btn-export-csv" title="Exporter .csv">⬇️ CSV</button>
-        <label class="import-label">⬆️ Import
-          <input id="file-input" type="file" accept=".xlsx,.csv" />
-        </label>
-      </div>
-      <button id="btn-reset" class="warn" title="Réinitialiser (local)">♻️ Reset</button>
+      <button id="btn-new">➕ Nouveau</button>
     </div>
   </header>
-
-  <!-- le reste du code inchangé -->
+  <main class="container">
+    <section class="content">
+      <table id="tbl">
+        <thead><tr><th>Opportunity.ID</th><th>Opportunity.Name</th><th>Opportunity.Client</th><th></th></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </section>
+  </main>
+  <dialog id="dlg">
+    <form method="dialog" id="frm">
+      <h3 id="dlg-title">Éditer opportunité</h3>
+      <label>ID <input name="Opportunity.ID" id="f-id" readonly></label>
+      <label>Name <input name="Opportunity.Name"></label>
+      <label>Client <input name="Opportunity.Client"></label>
+      <menu>
+        <button id="dlg-cancel" value="cancel">Annuler</button>
+        <button id="dlg-ok" value="ok">Enregistrer</button>
+      </menu>
+    </form>
+  </dialog>
+  <footer class="footer"><span id="status">Prêt.</span></footer>
 </body>
 </html>
