@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Opportunities Manager</title>
+  <title>CRM</title>
   <meta name="theme-color" content="#1e6091">
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="styles.css">
@@ -14,8 +14,8 @@
 <body>
   <header class="topbar">
     <div class="title">
-      <h1>Opportunities Manager</h1>
-      <span class="version">Version V3.2.1 - 03/10/2025 19:22 (French time)</span>
+      <h1>CRM</h1>
+      <div class="version">Version V3.3 - 03/10/2025 20:12 (French time)</div>
     </div>
     <div class="actions">
       <button id="btn-new" title="Create opportunity">➕ New</button>
@@ -28,7 +28,7 @@
         </label>
       </div>
       <button id="btn-reset" class="warn" title="Reset local data">♻️ Reset</button>
-      <button id="btn-debug" class="ghost" title="Toggle debug panel" aria-controls="debug-panel" aria-expanded="false">🐞 Debug</button>
+      <button id="btn-debug" class="ghost" title="Toggle debug panel" aria-controls="debug-panel" aria-expanded="false">⟨⟩</button>
     </div>
   </header>
 
@@ -37,7 +37,7 @@
       <h2>Filters</h2>
       <div class="field">
         <label>Search</label>
-        <input type="search" id="q" placeholder="ID, name, notes…">
+        <input type="search" id="q" placeholder="name, client, notes…">
       </div>
       <div class="grid-2">
         <div class="field">
@@ -49,11 +49,11 @@
           <select id="f-owner"><option value="">(all)</option></select>
         </div>
         <div class="field">
-          <label>Sales step</label>
+          <label>SalesStep</label>
           <select id="f-step"><option value="">(all)</option></select>
         </div>
         <div class="field">
-          <label>Next action ≥</label>
+          <label>NextActionDate ≥</label>
           <input id="f-nextdate" type="date">
         </div>
       </div>
@@ -64,20 +64,19 @@
       <table id="tbl">
         <thead>
           <tr>
-            <th>Opportunity.ID</th>
-            <th>Opportunity.Name</th>
-            <th>Opportunity.CompanyID</th>
-            <th>Opportunity.ContactID</th>
-            <th>Opportunity.Client</th>
-            <th>Opportunity.Owner</th>
-            <th>Opportunity.SalesStep</th>
-            <th>Opportunity.SalesCycleLastChangeDate</th>
-            <th>Opportunity.NextActionDate</th>
-            <th>Opportunity.NextAction</th>
-            <th>Opportunity.ClosingDate</th>
-            <th>Opportunity.ClosingValue</th>
-            <th>Opportunity.Notes</th>
             <th></th>
+            <th>Name</th>
+            <th>Company</th>
+            <th>Contact</th>
+            <th>Client</th>
+            <th>Owner</th>
+            <th>SalesStep</th>
+            <th>SalesCycleLastChangeDate</th>
+            <th>NextActionDate</th>
+            <th>NextAction</th>
+            <th>ClosingDate</th>
+            <th>ClosingValue</th>
+            <th>Notes</th>
           </tr>
         </thead>
         <tbody id="tbody"></tbody>
@@ -87,32 +86,26 @@
 
   <dialog id="dlg">
     <form method="dialog" id="frm">
-      <h3 id="dlg-title">Edit opportunity</h3>
+      <h3 id="dlg-title">Edit</h3>
+      <input name="Opportunity.ID" id="f-id" type="hidden">
       <div class="grid-2">
-        <label>ID (auto) <input name="Opportunity.ID" id="f-id" required readonly></label>
-        <label>Name<input name="Opportunity.Name" required></label>
-
-        <label>Company (name)
-          <select id="f-company-name"></select>
-        </label>
-        <label>CompanyID
-          <input name="Opportunity.CompanyID" id="f-company-id" placeholder="CMPY-000001">
-        </label>
-
-        <label>ContactID<input name="Opportunity.ContactID" placeholder="CON-000001"></label>
-        <label>Client<select name="Opportunity.Client" id="c-client" required></select></label>
-        <label>Owner<select name="Opportunity.Owner" id="c-owner" required></select></label>
-        <label>SalesStep<select name="Opportunity.SalesStep" id="c-step" required></select></label>
-        <label>SalesCycleLastChangeDate><input type="date" name="Opportunity.SalesCycleLastChangeDate"></label>
-        <label>NextActionDate><input type="date" name="Opportunity.NextActionDate"></label>
-        <label>NextAction<input name="Opportunity.NextAction"></label>
-        <label>ClosingDate><input type="date" name="Opportunity.ClosingDate"></label>
-        <label>ClosingValue><input type="number" step="0.01" name="Opportunity.ClosingValue" placeholder="€"></label>
+        <label>Name <input name="Opportunity.Name" required></label>
+        <label>Company (name) <select id="f-company-name"></select></label>
+        <label>CompanyID <input name="Opportunity.CompanyID" id="f-company-id" placeholder="CMPY-000001"></label>
+        <label>Contact (name) <select id="f-contact-name"></select></label>
+        <label>ContactID <input name="Opportunity.ContactID" id="f-contact-id" placeholder="CON-000001"></label>
+        <label>Client <select name="Opportunity.Client" id="c-client" required></select></label>
+        <label>Owner <select name="Opportunity.Owner" id="c-owner" required></select></label>
+        <label>SalesStep <select name="Opportunity.SalesStep" id="c-step" required></select></label>
+        <label>SalesCycleLastChangeDate <input type="date" name="Opportunity.SalesCycleLastChangeDate"></label>
+        <label>NextActionDate <input type="date" name="Opportunity.NextActionDate"></label>
+        <label>NextAction <input name="Opportunity.NextAction"></label>
+        <label>ClosingDate <input type="date" name="Opportunity.ClosingDate"></label>
+        <label>ClosingValue <input type="number" step="0.01" name="Opportunity.ClosingValue" placeholder="€"></label>
       </div>
-      <label class="block">Notes<textarea name="Opportunity.Notes" rows="4"></textarea></label>
+      <label class="block">Notes <textarea name="Opportunity.Notes" rows="4"></textarea></label>
       <menu>
         <button id="dlg-cancel" value="cancel">Cancel</button>
-        <button id="dlg-delete" class="warn" value="delete">Delete</button>
         <button id="dlg-ok" value="ok" class="primary">Save</button>
       </menu>
     </form>
