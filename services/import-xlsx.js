@@ -74,8 +74,6 @@ export async function importXlsx(ctx, file){
   Object.assign(ctx.contacts,  contactsIn);
   Object.assign(ctx.compInfo,  compInfoIn);
   Object.assign(ctx.contInfo,  contInfoIn);
-// (re)construire les index id -> nom après import
-  import('../core/state.js').then(m => m.rebuildIndexes(ctx));
   ctx.save();
   ctx.dbg?.("Import done.", {rows: clean.length, companies: Object.keys(companiesIn).length, contacts: Object.keys(contInfoIn).length});
 }
