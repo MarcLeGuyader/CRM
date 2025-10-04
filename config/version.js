@@ -1,1 +1,3 @@
-export const VERSION_STAMP = "Version Modular Full V1 - 04/10/2025 08:51 (GMT)";
+// config/version.js
+// Version value kept for internal use, but UI no longer renders it.
+window.APP_VERSION = window.APP_VERSION || null; // hide version display
