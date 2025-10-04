@@ -1,230 +1,290 @@
-// Deploy to GitHub from bundle JSON or ZIP — client-only, commits via REST API (English-only).
+// Repository Bundler — English UI, progress bar, per-file error handling, Copy/Download JSON, ZIP export
+// Runs fully in the browser. Token (if provided) is used in-memory only.
 
+// ---------- Small DOM helpers ----------
 const $ = s => document.querySelector(s);
-const logEl = $("#log");
+const outTA = $("#out");
 const statusEl = $("#status");
+const btnGen = $("#btn-gen");
+const btnCopy = $("#btn-copy");
+const btnDLJson = $("#btn-dl-json");
+const btnDLZip = $("#btn-dl-zip");
+const logEl = $("#log");
+const prog = $("#prog");
+const progText = $("#prog-text");
 
-function log(...args){ const line=args.map(a=>typeof a==='object'?JSON.stringify(a):String(a)).join(' '); logEl.textContent += (logEl.textContent?'\n':'') + line; }
-function setStatus(s, cls=''){ statusEl.textContent=s; statusEl.className='muted '+cls; }
+function log(...args){
+  const line = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
+  logEl.textContent += (logEl.textContent ? '\n' : '') + line;
+  // keep console too
+  console.log('[BUNDLER]', ...args);
+}
+function setStatus(text, cls=''){
+  statusEl.textContent = text;
+  statusEl.className = 'muted ' + cls;
+}
 
-const state = {
-  files: null,     // [{path, content(base64 or text), type: 'text'|'binary'}...]
-  removeList: [],  // computed when mode=replace
+// ---------- Config & utils ----------
+const BIN_EXTS = [
+  ".png",".jpg",".jpeg",".gif",".svg",".ico",".webp",
+  ".pdf",".woff",".woff2",".ttf",".eot",".otf",
+  ".zip",".gz",".mp4",".mov",".webm",".mp3",".wav",".7z"
+];
+
+function isBinaryPath(p){
+  const low = p.toLowerCase();
+  return BIN_EXTS.some(ext => low.endsWith(ext));
+}
+
+const djb2 = (str) => {
+  let h = 5381;
+  for (let i = 0; i < str.length; i++) h = ((h << 5) + h) + str.charCodeAt(i);
+  return (h >>> 0).toString(16).padStart(8, "0");
 };
 
-const BIN_EXTS = [".png",".jpg",".jpeg",".gif",".svg",".ico",".webp",".pdf",".woff",".woff2",".ttf",".eot",".zip",".mp4",".mov"];
-
-function isBinaryPath(p){ const low=p.toLowerCase(); return BIN_EXTS.some(ext=>low.endsWith(ext)); }
-
-function fromBundleJSON(txt){
-  const j = JSON.parse(txt);
-  if (!j.files || !Array.isArray(j.files)) throw new Error("Invalid JSON: missing 'files' array");
-  // normalize
-  return j.files
-    .filter(f => f && f.path && (f.content!=null || f.error==null))
-    .map(f => ({
-      path: f.path.replace(/^\.\//,''),
-      type: f.type || (isBinaryPath(f.path) ? 'binary' : 'text'),
-      // bundle may carry base64 for binaries; for text we keep plain content
-      content: String(f.content ?? '')
-    }));
-}
-
-async function fromZipFile(file){
-  const zip = await JSZip.loadAsync(file);
-  const out = [];
-  await Promise.all(Object.keys(zip.files).map(async name => {
-    const entry = zip.files[name];
-    if (entry.dir) return;
-    const path = name.replace(/^\.\//,'');
-    const binary = isBinaryPath(path);
-    const content = binary
-      ? await entry.async('base64')
-      : await entry.async('text');
-    out.push({ path, type: binary ? 'binary' : 'text', content });
-  }));
-  return out;
-}
-
-// ---- GitHub REST helpers ----------------------------------------------------
 function ghBase(owner, repo){ return `https://api.github.com/repos/${owner}/${repo}`; }
-
-async function ghGet(owner, repo, token, path){
-  const r = await fetch(`${ghBase(owner,repo)}/contents/${encodeURIComponent(path)}`, {
-    headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json' }
-  });
-  return r;
+function headers(token){
+  return token ? { Accept:'application/vnd.github+json', Authorization:`Bearer ${token}` }
+               : { Accept:'application/vnd.github+json' };
 }
 
-async function ghPut(owner, repo, token, branch, path, contentBase64, message, sha=null){
-  const body = { message, content: contentBase64, branch };
-  if (sha) body.sha = sha;
-  const r = await fetch(`${ghBase(owner,repo)}/contents/${encodeURIComponent(path)}`, {
-    method: 'PUT',
-    headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json' },
-    body: JSON.stringify(body)
-  });
-  if (!r.ok){ const t=await r.text(); throw new Error(`PUT ${path} -> ${r.status}: ${t}`); }
-  return r.json();
-}
+// auto-fill owner/repo if hosted on GitHub Pages like <owner>.github.io/<repo>
+(function detectDefaults(){
+  try{
+    const host = location.hostname; // e.g., marcleguyader.github.io
+    const path = location.pathname.split('/').filter(Boolean); // [ "CRM", "tools", "bundle.html" ]
+    const owner = host.split('.')[0] || '';
+    const repo  = path[0] || '';
+    if (!$("#owner").value) $("#owner").value = owner;
+    if (!$("#repo").value)  $("#repo").value  = repo;
+  }catch{}
+})();
 
-async function ghDelete(owner, repo, token, branch, path, message, sha){
-  const r = await fetch(`${ghBase(owner,repo)}/contents/${encodeURIComponent(path)}`, {
-    method: 'DELETE',
-    headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json' },
-    body: JSON.stringify({ message, branch, sha })
-  });
-  if (!r.ok){ const t=await r.text(); throw new Error(`DEL ${path} -> ${r.status}: ${t}`); }
-  return r.json();
+// ---------- GitHub API helpers ----------
+async function getRepoInfo(owner, repo, token){
+  const r = await fetch(`${ghBase(owner,repo)}`, { headers: headers(token) });
+  if (!r.ok) throw new Error(`Repo info ${owner}/${repo} -> ${r.status}`);
+  return r.json(); // includes default_branch
 }
-
-async function getShaIfExists(owner, repo, token, path){
-  const r = await ghGet(owner, repo, token, path);
-  if (r.status === 404) return null;
-  if (!r.ok) throw new Error(`HEAD ${path} -> ${r.status}`);
+async function getBranchRef(owner, repo, branch, token){
+  const r = await fetch(`${ghBase(owner,repo)}/git/refs/heads/${branch}`, { headers: headers(token) });
+  if (!r.ok) throw new Error(`refs ${branch} -> ${r.status}`);
+  return r.json(); // { object: { sha: <commitSha> } }
+}
+async function getCommit(owner, repo, commitSha, token){
+  const r = await fetch(`${ghBase(owner,repo)}/git/commits/${commitSha}`, { headers: headers(token) });
+  if (!r.ok) throw new Error(`commit ${commitSha} -> ${r.status}`);
+  return r.json(); // { tree: { sha: <treeSha> } }
+}
+async function getTreeRecursive(owner, repo, treeSha, token){
+  const r = await fetch(`${ghBase(owner,repo)}/git/trees/${treeSha}?recursive=1`, { headers: headers(token) });
+  if (!r.ok) throw new Error(`tree ${treeSha} -> ${r.status}`);
   const j = await r.json();
-  return j.sha || null;
+  // keep only blobs (files)
+  return (j.tree || []).filter(x => x.type === "blob").map(x => x.path);
 }
-
-async function listRepoTree(owner, repo, token, branch){
-  // get branch ref → commit → tree (recursive)
-  const r1 = await fetch(`${ghBase(owner,repo)}/git/refs/heads/${branch}`, {
-    headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json' }
-  });
-  if (!r1.ok) throw new Error(`refs ${branch} -> ${r1.status}`);
-  const ref = await r1.json();
-  const commitSha = ref.object.sha;
-
-  const r2 = await fetch(`${ghBase(owner,repo)}/git/commits/${commitSha}`, {
-    headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json' }
-  });
-  if (!r2.ok) throw new Error(`commit -> ${r2.status}`);
-  const commit = await r2.json();
-  const treeSha = commit.tree.sha;
-
-  const r3 = await fetch(`${ghBase(owner,repo)}/git/trees/${treeSha}?recursive=1`, {
-    headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json' }
-  });
-  if (!r3.ok) throw new Error(`tree -> ${r3.status}`);
-  const tree = await r3.json();
-  // only return blobs (files)
-  return (tree.tree || []).filter(x => x.type === 'blob').map(x => x.path);
-}
-
-// -----------------------------------------------------------------------------
-
-function toBase64(str){
-  // encode text to base64 (UTF-8)
-  return btoa(unescape(encodeURIComponent(str)));
-}
-
-async function validateInput(){
-  const jsonTxt = $("#json-in").value.trim();
-  const zipFile = $("#zip-in").files[0] || null;
-  if (!jsonTxt && !zipFile) throw new Error("Provide a bundle JSON OR a ZIP file.");
-
-  if (jsonTxt){
-    state.files = fromBundleJSON(jsonTxt);
-    log(`Bundle JSON: ${state.files.length} file(s) ready.`);
-  } else {
-    state.files = await fromZipFile(zipFile);
-    log(`ZIP: ${state.files.length} file(s) ready.`);
-  }
-}
-
-function sanityFilter(list){
-  // avoid overwriting this tool itself when replacing
-  return list.filter(p => !/^tools\/deploy\.(html|js)$/i.test(p));
-}
-
-async function dryRun(){
-  const owner = $("#gh-owner").value.trim();
-  const repo  = $("#gh-repo").value.trim();
-  const branch= $("#gh-branch").value.trim() || "main";
-  const token = $("#gh-token").value.trim();
-  const mode  = $("#mode").value;
-
-  if (!owner || !repo || !token) throw new Error("Owner, repository, and token are required.");
-
-  const incoming = state.files.map(f=>f.path);
-  log(`Incoming paths: ${incoming.length}`);
-
-  if (mode === 'replace'){
-    const existing = await listRepoTree(owner, repo, token, branch);
-    const toRemove = sanityFilter(existing.filter(p => !incoming.includes(p)));
-    state.removeList = toRemove;
-    log(`REPLACE mode: ${toRemove.length} file(s) will be removed (except tools/deploy.*).`);
-  } else {
-    state.removeList = [];
-    log(`PATCH mode: no deletions.`);
-  }
-}
-
-async function deploy(){
-  const owner = $("#gh-owner").value.trim();
-  const repo  = $("#gh-repo").value.trim();
-  const branch= $("#gh-branch").value.trim() || "main";
-  const token = $("#gh-token").value.trim();
-  const msg   = $("#gh-message").value.trim() || "Deploy via tools/deploy";
-
-  if (!owner || !repo || !token) throw new Error("Owner, repository, and token are required.");
-
-  // 1) Delete (replace mode)
-  for (const path of state.removeList){
-    const sha = await getShaIfExists(owner, repo, token, path);
-    if (!sha) continue;
-    log(`DEL ${path}`);
-    await ghDelete(owner, repo, token, branch, path, `[deploy] remove ${path}`, sha);
-  }
-
-  // 2) Upsert files
-  for (const f of state.files){
-    const sha = await getShaIfExists(owner, repo, token, f.path);
-    let base64;
-    if (f.type === 'binary'){
-      // already base64 from bundle/zip
-      base64 = f.content;
-    } else {
-      base64 = toBase64(f.content);
+// Raw fetchers with retries and per-file error handling
+async function fetchWithRetry(url, asBinary=false, attempts=3, delayMs=350){
+  let lastErr;
+  for (let i=0;i<attempts;i++){
+    try{
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+      if (asBinary){
+        const buf = await res.arrayBuffer();
+        // convert to base64
+        const bytes = new Uint8Array(buf);
+        let bin = "";
+        for (let j=0;j<bytes.length;j++) bin += String.fromCharCode(bytes[j]);
+        return btoa(bin);
+      } else {
+        return await res.text();
+      }
+    } catch(e){
+      lastErr = e;
+      if (i < attempts-1) await new Promise(r=>setTimeout(r, delayMs*(i+1)));
     }
-    log(`${sha ? 'PUT' : 'NEW'} ${f.path}`);
-    await ghPut(owner, repo, token, branch, f.path, base64, msg, sha);
   }
-
-  log('✅ Deployment complete.');
-  setStatus('Done.', 'ok');
+  throw lastErr;
+}
+function rawUrl(owner, repo, branch, path){
+  // Use raw.githubusercontent.com for direct content
+  return `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${path}`;
 }
 
-// UI events
-$("#btn-validate").addEventListener('click', async ()=>{
-  try {
-    setStatus('Validating…');
-    logEl.textContent = '';
-    await validateInput();
-    setStatus('Input valid — you can Dry run or Deploy', 'ok');
-    $("#btn-deploy").disabled = false;
-  } catch(e){
-    setStatus('Error: '+(e.message||e), 'warn'); log(e);
-  }
-});
+// ---------- Progress helpers ----------
+function setProgress(done, total){
+  const pct = total ? Math.round((done/total)*100) : 0;
+  prog.max = 100;
+  prog.value = pct;
+  progText.textContent = `${done} / ${total}`;
+}
 
-$("#btn-dryrun").addEventListener('click', async ()=>{
-  try {
-    setStatus('Dry run…'); log('--- Dry run ---');
-    await validateInput();
-    await dryRun();
-    setStatus('Dry run done (see log).', 'ok');
-    $("#btn-deploy").disabled = false;
-  } catch(e){
-    setStatus('Error: '+(e.message||e), 'warn'); log(e);
-  }
-});
+// ---------- Main generator ----------
+async function generate(){
+  btnGen.disabled = true; btnCopy.disabled = true; btnDLJson.disabled = true; btnDLZip.disabled = true;
+  outTA.value = ""; logEl.textContent = ""; setProgress(0, 0);
+  setStatus("Detecting repository/branch…");
 
-$("#btn-deploy").addEventListener('click', async ()=>{
-  try {
-    setStatus('Deploying…');
-    await deploy();
+  try{
+    let owner = $("#owner").value.trim();
+    let repo  = $("#repo").value.trim();
+    let branch= $("#branch").value.trim();
+    const token = $("#token").value.trim() || null;
+
+    if (!owner || !repo) throw new Error("Owner and Repository are required.");
+
+    // 1) auto-detect default branch
+    if (!branch){
+      const info = await getRepoInfo(owner, repo, token);
+      branch = info.default_branch || 'main';
+      log(`Default branch detected: ${branch}`);
+    } else {
+      log(`Branch provided: ${branch}`);
+    }
+
+    // 2) list and fetch files
+    const ref = await getBranchRef(owner, repo, branch, token);
+    const commitSha = ref.object.sha;
+    log('Commit SHA:', commitSha);
+
+    const commit = await getCommit(owner, repo, commitSha, token);
+    const treeSha = commit.tree.sha;
+    log('Tree SHA:', treeSha);
+
+    const paths = await getTreeRecursive(owner, repo, treeSha, token);
+    log(`Found ${paths.length} files in tree`);
+    setStatus(`Fetching ${paths.length} files…`);
+    setProgress(0, paths.length);
+
+    const items = [];
+    let done = 0;
+
+    for (const p of paths){
+      const isBin = isBinaryPath(p);
+      const url = rawUrl(owner, repo, branch, p);
+
+      try{
+        const content = await fetchWithRetry(url, isBin, 3, 350);
+        const hash = djb2(content);
+        items.push({
+          path: p,
+          size: content.length,
+          type: isBin ? "binary" : "text",
+          hash,
+          content
+        });
+      } catch(e){
+        log(`ERROR fetching ${p}: ${e.message || e}`);
+        items.push({
+          path: p,
+          type: "error",
+          error: String(e && e.message ? e.message : e)
+        });
+      } finally {
+        done++; setProgress(done, paths.length);
+      }
+    }
+
+    // 3) compose bundle JSON
+    const now = new Date();
+    const versionStr = now.toLocaleString("fr-FR", { timeZone: "Europe/Paris" }); // spec: FR time in version
+    const bundle = {
+      meta: {
+        project: repo || "CRM_Modular_Full",
+        version: `Full Project Capture - ${versionStr}`,
+        generatedAt: now.toISOString(),
+        totalFiles: items.length
+      },
+      files: items
+    };
+
+    const jsonText = JSON.stringify(bundle, null, 2);
+    outTA.value = jsonText;
+
+    setStatus(`Done — ${items.length} files captured.`, "ok");
+    btnCopy.disabled = false; btnDLJson.disabled = false; btnDLZip.disabled = false;
+
   } catch(e){
-    setStatus('Error: '+(e.message||e), 'warn'); log(e);
+    setStatus("Error: " + (e.message || e), "warn");
+    log("FATAL:", e.message || e);
+  } finally {
+    btnGen.disabled = false;
   }
-});
+}
+
+// ---------- Actions: copy / download JSON / download ZIP ----------
+async function copyJSON(){
+  try {
+    await navigator.clipboard.writeText(outTA.value || "");
+    setStatus("Bundle copied to clipboard.", "ok");
+  } catch {
+    // Fallback
+    outTA.select();
+    document.execCommand("copy");
+    setStatus("Bundle selected; press ⌘/Ctrl+C to copy.", "ok");
+  }
+}
+function fileNameBase(){
+  const repo = ($("#repo").value.trim() || "repo");
+  const ts = new Date().toISOString().replace(/[:.]/g,'-');
+  return `${repo}-bundle-${ts}`;
+}
+function downloadJSON(){
+  const blob = new Blob([outTA.value || ""], { type: "application/json;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = fileNameBase() + ".json";
+  document.body.appendChild(a); a.click(); a.remove();
+  setStatus("JSON downloaded.", "ok");
+}
+async function downloadZIP(){
+  if (!window.JSZip){ setStatus("JSZip not loaded.", "warn"); return; }
+  const zip = new JSZip();
+
+  // Always include bundle.json (exact textarea content)
+  const bundleText = outTA.value || "{}";
+  zip.file("bundle.json", bundleText);
+
+  // Optional: also explode files/ from the bundle (decoded)
+  try{
+    const parsed = JSON.parse(bundleText);
+    if (parsed && Array.isArray(parsed.files)){
+      const folder = zip.folder("files");
+      let idx = 0, total = parsed.files.length;
+      for (const f of parsed.files){
+        idx++;
+        // progress feedback in status (zip build step)
+        if (idx % 25 === 0) setStatus(`Building ZIP… ${idx}/${total}`);
+
+        if (!f || !f.path) continue;
+        if (f.type === "binary" && typeof f.content === "string"){
+          folder.file(f.path, f.content, { base64: true });
+        } else if (f.type === "text" && typeof f.content === "string"){
+          folder.file(f.path, f.content);
+        } else if (f.type === "error"){
+          // record an error note file so nothing is hidden
+          folder.file(f.path + ".ERROR.txt", String(f.error || "unknown error"));
+        } else if (typeof f.content === "string"){
+          // default fallback
+          folder.file(f.path, f.content);
+        }
+      }
+    }
+  } catch(e){
+    log("ZIP build note:", e.message || e);
+  }
+
+  const blob = await zip.generateAsync({ type: "blob" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = fileNameBase() + ".zip";
+  document.body.appendChild(a); a.click(); a.remove();
+  setStatus("ZIP downloaded.", "ok");
+}
+
+// ---------- Wire up UI ----------
+btnGen.addEventListener('click', generate);
+btnCopy.addEventListener('click', copyJSON);
+btnDLJson.addEventListener('click', downloadJSON);
+btnDLZip.addEventListener('click', downloadZIP);
