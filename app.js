@@ -43,7 +43,7 @@ on('#btn-reset','click', () => {
 
   
   on('#btn-export-xlsx','click', () => exportXlsx(ctx));
-  on('#btn-export-csv','click',  () => exportCsv(ctx));
+//  on('#btn-export-csv','click',  () => exportCsv(ctx));
 
   const fin=document.getElementById('file-input');
   if (fin) fin.addEventListener('change', async ev => {
