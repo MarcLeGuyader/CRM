@@ -1,6 +1,48 @@
-.brand-logo {
-  width: 2cm;
-  height: 2cm;
-  object-fit: contain;
-  display: block;
+/* === Header (green bar) === */
+.app-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  padding:10px 14px;
+  background: rgb(75,134,128); /* requested green */
+  color:#fff;
+  border-bottom:1px solid rgba(0,0,0,.1);
 }
+.app-header .header-left,
+.app-header .header-right{
+  display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+}
+.app-header .app-title{
+  margin:0 6px 0 6px;
+  font-weight:600;
+  font-size:20px;
+}
+.logo{
+  width:2cm; height:2cm; object-fit:contain;
+}
+
+/* Buttons */
+.btn{
+  border:1px solid rgba(255,255,255,.75);
+  background:transparent;
+  color:#fff;
+  padding:6px 10px;
+  border-radius:6px;
+  cursor:pointer;
+  font-size:14px;
+}
+.btn:hover{ background:rgba(255,255,255,.12); }
+.btn.primary{ background:#fff; color:rgb(75,134,128); border-color:#fff; }
+.btn .plus{ display:inline-block; margin-right:6px; font-weight:700; }
+
+/* Optional small bug icon */
+.icon-bug::before{ content:"🐞"; margin-right:6px; }
+
+/* === Opportunities table alternating rows === */
+.opportunities-table tbody tr:nth-child(even){
+  background: rgb(216,214,208); /* requested alternating color */
+}
+
+/* Keep tables readable on the green header */
+.app-header .btn, .app-header .app-title{ user-select:none; }
