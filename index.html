@@ -1,56 +1,91 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>CRM</title>
   <link rel="stylesheet" href="styles/main.css">
 </head>
 <body>
-  <!-- Header: replaces previous header (single green bar) -->
-  <header class="app-header">
-    <div class="header-left">
+  <!-- Top green bar -->
+  <header id="topbar" class="topbar">
+    <div class="tb-left">
       <img src="assets/maello-logo.png" alt="Maello logo" class="logo" />
-      <h1 class="app-title">CRM</h1>
-      <button id="btn-filter" class="btn ghost">Filter</button>
-      <button id="btn-new-opportunity" class="btn primary"><span class="plus">+</span> New opportunity</button>
+      <span class="app-title">CRM</span>
+      <button id="btn-filter" class="btn">Filter</button>
+      <button id="btn-new" class="btn btn-primary">+ New opportunity</button>
     </div>
-    <div class="header-right">
-      <button id="btn-debug" class="btn ghost icon-bug" title="Debug">Debug</button>
-      <button id="btn-reset" class="btn ghost">Reset</button>
-      <button id="btn-upload" class="btn ghost">Upload Excel CRM data</button>
-      <button id="btn-export" class="btn ghost">Export Excel CRM</button>
-      <button id="btn-save" class="btn ghost">Save</button>
+    <div class="tb-right">
+      <button id="btn-debug" class="btn">🐞 Debug</button>
+      <button id="btn-reset" class="btn">Reset</button>
+      <button id="btn-upload" class="btn">Upload Excel CRM data</button>
+      <button id="btn-export" class="btn">Export Excel CRM</button>
+      <button id="btn-save" class="btn btn-primary">Save</button>
     </div>
   </header>
 
-  <!-- Main app container (kept empty here so we don't break your existing layout).
-       Your existing scripts will render into #app-root as before. -->
-  <main id="app-root"></main>
+  <!-- Panels -->
+  <section id="panel-filter" class="panel hidden">
+    <div class="panel-head">
+      <strong>Filters</strong>
+      <button class="panel-close" data-target="panel-filter">✕</button>
+    </div>
+    <div class="panel-body">
+      <!-- Placeholder: user existing filter UI can be injected here -->
+      <p>Type to filter by company/contact/opportunity:</p>
+      <input id="filter-q" type="search" placeholder="e.g., Acme / Marie Dupont" />
+      <button id="filter-apply" class="btn btn-primary">Apply</button>
+      <button id="filter-clear" class="btn">Clear</button>
+    </div>
+  </section>
 
-  <!-- Your existing scripts (keep your current order); app.js kept for compatibility -->
-  <script src="app.js"></script>
-  <!-- Optional: hook buttons if your app doesn't already do it -->
+  <section id="panel-debug" class="panel hidden">
+    <div class="panel-head">
+      <strong>Debug console</strong>
+      <button class="panel-close" data-target="panel-debug">✕</button>
+    </div>
+    <div class="panel-body">
+      <pre id="debug-out" class="debug-out">{}</pre>
+    </div>
+  </section>
+
+  <main id="app">
+    <h1 class="visually-hidden">CRM</h1>
+    <div id="opps-wrapper">
+      <table id="opps-table" class="opps-table">
+        <thead>
+          <tr>
+            <th>Company · Contact</th>
+            <th>Opportunity</th>
+            <th>Stage</th>
+            <th>Amount</th>
+            <th>Owner</th>
+          </tr>
+        </thead>
+        <tbody id="opps-tbody"></tbody>
+      </table>
+    </div>
+  </main>
+
+  <script src="ui/header.js"></script>
+  <script src="ui/render-table.js"></script>
   <script>
-    (function(){
-      const qs = s => document.querySelector(s);
-      const noop = e => { /* wire to your real handlers in app.js */ };
-      [['#btn-filter', 'onFilter'],
-       ['#btn-new-opportunity', 'onNewOpportunity'],
-       ['#btn-debug', 'onDebug'],
-       ['#btn-reset', 'onReset'],
-       ['#btn-upload', 'onUpload'],
-       ['#btn-export', 'onExport'],
-       ['#btn-save', 'onSave']].forEach(([sel, name]) => {
-         const el = qs(sel);
-         if (el && !el._wired) {
-           el.addEventListener('click', (e)=>{
-             if (window.CRM && typeof window.CRM[name] === 'function') { window.CRM[name](e); }
-           });
-           el._wired = true;
-         }
-       });
-    })();
+    // Boot
+    window.addEventListener('DOMContentLoaded', () => {
+      if (window.CRM && window.CRM.state && Array.isArray(window.CRM.state.opportunities)) {
+        window.renderOpportunities(window.CRM.state.opportunities);
+      } else {
+        // Soft fallback so the page shows something
+        const sample = [
+          { company: 'Acme', contactFirst: 'Marie', contactLast: 'Dupont', title: 'Renewal 2025', stage: 'Qualifying', amount: 42000, owner: 'MLG' },
+          { company: 'Globex', contactFirst: 'Ali', contactLast: 'Khan', title: 'New rollout', stage: 'Proposal', amount: 88000, owner: 'JB' },
+          { company: 'Initech', contactFirst: 'Sophie', contactLast: 'Martin', title: 'Pilot', stage: 'Negotiation', amount: 12000, owner: 'MLG' }
+        ];
+        window.renderOpportunities(sample);
+      }
+      // Initialize header actions
+      if (window.setupHeader) window.setupHeader();
+    });
   </script>
 </body>
 </html>
