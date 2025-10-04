@@ -37,11 +37,11 @@ export function renderTable(ctx){
     b.addEventListener('click', ()=>ctx.openEditor(r));
     t0.appendChild(b); tr.appendChild(t0);
 
-    const compId = String(r["Opportunity.CompanyID"] || "").trim();
-    const contId = String(r["Opportunity.ContactID"] || "").trim();
-    const compName = ctx.compById?.[compId] || companyNameFromId(ctx, compId);
-     const contName = ctx.contById?.[contId] || contactDisplay(ctx, contId);
-    
+    const compId=((r["Opportunity.CompanyID"]||"")+"").trim();
+    const contId=((r["Opportunity.ContactID"]||"")+"").trim();
+    const compName = companyNameFromId(ctx, compId);
+    const contName = contactDisplay(ctx, contId);
+
     const cells=[
       r["Opportunity.Name"]||"",
       compName,
