@@ -40,7 +40,9 @@
         <select id="flt-stage">
           <option value="">All</option>
           <option>Discovery</option>
+          <option>Qualified</option>
           <option>Proposal</option>
+          <option>Negotiation</option>
           <option>Won</option>
           <option>Lost</option>
         </select>
@@ -62,7 +64,7 @@
           </tr>
         </thead>
         <tbody>
-          <!-- filled by ui/render.js -->
+          <!-- filled by ui/render-table.js -->
         </tbody>
       </table>
     </div>
@@ -77,6 +79,10 @@
     <pre id="debug-log"></pre>
   </section>
 
-  <script type="module" src="app.js"></script>
+  <!-- Order matters: load helper UIs first, then app logic -->
+  <script src="ui/debug.js"></script>
+  <script src="ui/filters.js"></script>
+  <script src="ui/render-table.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
