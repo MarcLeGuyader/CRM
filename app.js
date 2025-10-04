@@ -20,10 +20,28 @@ window.addEventListener('DOMContentLoaded', () => {
 
   on('#btn-new','click', () => ctx.openEditor());
   on('#btn-save','click', () => { ctx.save(); alert('Data saved locally.'); });
-  on('#btn-reset','click', () => {
-    if(!confirm('Reset local data?')) return;
-    ctx.reset(); renderTable(ctx);
+
+//  on('#btn-reset','click', () => {
+//    if(!confirm('Reset local data?')) return;
+//    ctx.reset(); renderTable(ctx);
+//  });
+
+on('#btn-reset','click', () => {
+  if(!confirm('Reset local data?')) return;
+  ctx.reset();
+  ['#q','#f-client','#f-owner','#f-step','#f-nextdate'].forEach(sel=>{
+    const el=document.querySelector(sel);
+    if(!el) return;
+    if (el.tagName === 'SELECT') el.selectedIndex = 0;
+    else el.value = '';
   });
+  const tb=document.getElementById('tbody'); 
+  if (tb) tb.innerHTML = '';
+  renderTable(ctx);
+  alert('Local data cleared.');
+});
+
+  
   on('#btn-export-xlsx','click', () => exportXlsx(ctx));
   on('#btn-export-csv','click',  () => exportCsv(ctx));
 
