@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>CRM Bundle Tool</title>
+  <link rel="stylesheet" href="../styles/main.css">
+  <style>
+    body { padding: 16px; }
+    .card { background:#fff; border:1px solid #e1e6eb; border-radius:12px; padding:16px; max-width: 980px; margin:auto; }
+    .row { display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
+    textarea { width:100%; height:220px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size:12px; }
+    .muted { color:#617387; font-size:12px; }
+    .ok { color:#2f9e44; }
+    .list { width:100%; height:120px; }
+    button { cursor:pointer; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>CRM – Bundle generator</h1>
+    <p class="muted">Génère un snapshot JSON de tous les fichiers pour révision et patchs.</p>
+
+    <details>
+      <summary><strong>Fichiers inclus</strong> (modifiable)</summary>
+      <p class="muted">Ajoute/retire des chemins, un par ligne.</p>
+      <textarea id="files" class="list"></textarea>
+    </details>
+
+    <div class="row" style="margin:12px 0">
+      <button id="btn-gen">Generate snapshot</button>
+      <button id="btn-copy" disabled>Copy JSON</button>
+      <span id="status" class="muted">Ready.</span>
+    </div>
+
+    <textarea id="out" placeholder="Le bundle apparaîtra ici…" readonly></textarea>
+  </div>
+
+  <script type="module" src="./bundle.js"></script>
+</body>
+</html>
