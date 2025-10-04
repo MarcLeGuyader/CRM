@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>CRM – Deploy to GitHub</title>
+  <link rel="stylesheet" href="../styles/main.css">
+  <style>
+    body { padding:16px; }
+    .card { background:#fff; border:1px solid #e1e6eb; border-radius:12px; padding:16px; max-width:980px; margin:auto; }
+    .row { display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
+    label.small { font-size:12px; color:#617387; }
+    input[type="text"], input[type="password"], textarea, select {
+      border:1px solid #d8dee6; border-radius:8px; padding:8px; font-size:14px; width:100%;
+    }
+    textarea { height:220px; font-family:ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .muted { color:#617387; font-size:12px; }
+    .ok { color:#2f9e44; }
+    .warn { color:#c92a2a; }
+    .btns { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .ghost { background:transparent; border:1px solid #c6d2df; }
+    .danger { background:#c92a2a; color:#fff; border-color:#c92a2a; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Deploy to GitHub</h1>
+    <p class="muted">Colle un <b>bundle JSON</b> ou choisis un <b>ZIP</b>. L’outil commite directement dans ton dépôt.</p>
+
+    <div class="grid-2">
+      <div>
+        <label>GitHub Owner <input id="gh-owner" type="text" placeholder="marcleguyader"></label>
+      </div>
+      <div>
+        <label>Repository <input id="gh-repo" type="text" placeholder="CRM"></label>
+      </div>
+      <div>
+        <label>Branch <input id="gh-branch" type="text" placeholder="main" value="main"></label>
+      </div>
+      <div>
+        <label>Commit message <input id="gh-message" type="text" placeholder="Deploy from bundle/zip"></label>
+      </div>
+      <div>
+        <label>Token (PAT) <input id="gh-token" type="password" placeholder="ghp_xxx (repo scope)"></label>
+        <label class="small">Utilise un <b>token à portée limitée</b> (fine-grained) sur <i>ce dépôt uniquement</i>. Il reste en mémoire de la page, non sauvegardé.</label>
+      </div>
+      <div>
+        <label>Mode
+          <select id="mode">
+            <option value="patch">Patch (ajoute/met à jour seulement)</option>
+            <option value="replace">Remplacer tout (supprime les fichiers absents)</option>
+          </select>
+        </label>
+      </div>
+    </div>
+
+    <hr>
+
+    <details>
+      <summary><b>Importer un bundle JSON</b> (colle ici)</summary>
+      <textarea id="json-in" placeholder='{"meta": {...}, "files":[{"path":"index.html","content":"..."}]}'></textarea>
+    </details>
+
+    <p class="muted">ou bien</p>
+
+    <div class="row">
+      <input id="zip-in" type="file" accept=".zip">
+      <span class="muted">ZIP: l’arborescence du ZIP sera poussée telle quelle à la racine du repo (sauf <code>tools/deploy.*</code>).</span>
+    </div>
+
+    <div class="btns" style="margin:12px 0">
+      <button id="btn-validate">Valider l’entrée</button>
+      <button id="btn-dryrun" class="ghost">Dry run (prévisualiser)</button>
+      <button id="btn-deploy" class="primary" disabled>Déployer</button>
+      <span id="status" class="muted">Ready.</span>
+    </div>
+
+    <details>
+      <summary><b>Log</b></summary>
+      <pre id="log" style="white-space:pre-wrap; font-family:ui-monospace, SFMono-Regular, Menlo, monospace;"></pre>
+    </details>
+  </div>
+
+  <!-- JSZip pour lecture ZIP côté client -->
+  <script defer src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script type="module" src="./deploy.js"></script>
+</body>
+</html>
