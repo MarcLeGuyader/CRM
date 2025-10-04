@@ -2,7 +2,7 @@ name: Deploy static site to Pages
 
 on:
   push:
-    branches: [ main ]   # change "main" si ta branche par défaut est "master"
+    branches: [ main ]   # change "main" if your default branch is different
   workflow_dispatch:
 
 permissions:
@@ -24,7 +24,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./   # publie la racine (index.html, etc.)
+          path: ./   # publish from repository root (index.html, etc.)
 
   deploy:
     environment:
