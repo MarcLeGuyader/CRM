@@ -16,13 +16,18 @@
     .muted{color:#617387;font-size:12px}
     .ok{color:#2f9e44}.warn{color:#c92a2a}
     .btns{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-    .ghost{background:transparent;border:1px solid #c6d2df;border-radius:8px;padding:8px 10px}
+    /* Make ghost buttons readable on white */
+    .ghost{background:transparent;border:1px solid #c6d2df;border-radius:8px;padding:8px 10px;color:#0b1320 !important}
+    button{color:#0b1320}
   </style>
 </head>
 <body>
   <div class="card">
     <h1>Full Project Bundle (via GitHub API)</h1>
-    <p class="muted">Récupère tout le repo (y compris <code>.github/</code>, icônes, binaires). Si la branche est vide/incorrecte, tu obtiendras 0 fichier.</p>
+    <p class="muted">
+      Capture the entire repository (including <code>.github/</code>, icons, binaries).  
+      If the branch is empty/incorrect, you’ll get 0 files.
+    </p>
 
     <div class="grid-3">
       <label>Owner
@@ -31,12 +36,13 @@
       <label>Repository
         <input id="repo" type="text" placeholder="CRM">
       </label>
-      <label>Branch (laisser vide ⇒ détection auto)
+      <label>Branch (leave empty ⇒ auto-detect)
         <input id="branch" type="text" placeholder="(auto)">
       </label>
     </div>
+
     <div class="grid-3" style="margin-top:8px">
-      <label>GitHub Token (optionnel, évite le rate limit)
+      <label>GitHub Token (optional, avoids rate limits)
         <input id="token" type="password" placeholder="ghp_xxx (Contents: read)">
       </label>
       <div></div><div></div>
@@ -44,12 +50,11 @@
 
     <div class="btns" style="margin:12px 0">
       <button id="btn-gen">Generate snapshot</button>
-      <!-- Libellé par défaut en FR -->
-      <button id="btn-copy" class="ghost" disabled>Copier le JSON</button>
+      <button id="btn-copy" class="ghost" disabled>Copy JSON</button>
       <span id="status" class="muted">Ready.</span>
     </div>
 
-    <textarea id="out" placeholder="Le JSON apparaîtra ici…" readonly></textarea>
+    <textarea id="out" placeholder="The JSON bundle will appear here…" readonly></textarea>
 
     <details style="margin-top:12px">
       <summary><b>Debug log</b></summary>
