@@ -24,7 +24,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./   # publie ton index.html, app.js, etc. depuis la racine
+          path: ./   # publie la racine (index.html, etc.)
 
   deploy:
     environment:
