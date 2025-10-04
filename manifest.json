@@ -1,0 +1,10 @@
+{
+  "//": "Version Modular Full V1 - 04/10/2025 08:51 (French time)",
+  "name": "CRM",
+  "short_name": "CRM",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1e6091",
+  "icons": []
+}
