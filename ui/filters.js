@@ -1,18 +1,20 @@
-import { q, on, fillSelect } from './dom.js';
-export function attachFilters(ctx, render){
-  fillSelect(q('#f-client'), ["", ...ctx.settings.clients]);
-  fillSelect(q('#f-owner'),  ["", ...ctx.settings.owners]);
-  fillSelect(q('#f-step'),   ["", ...ctx.settings.steps]);
+import { state } from '../core/state.js';
 
-  ['#q','#f-client','#f-owner','#f-step','#f-nextdate'].forEach(sel => {
-    const el = q(sel); if (el) el.addEventListener('input', render);
+export function bindFilter(onChange){
+  const q = document.getElementById('flt-q');
+  const stage = document.getElementById('flt-stage');
+  const handler = ()=> onChange();
+  q.addEventListener('input', handler);
+  stage.addEventListener('change', handler);
+}
+
+export function filterData(rows){
+  const q = document.getElementById('flt-q').value.trim().toLowerCase();
+  const stage = document.getElementById('flt-stage').value;
+  return rows.filter(r => {
+    const full = `${r.company} ${r.contactFirst} ${r.contactLast} ${r.opportunity} ${r.owner} ${r.stage}`.toLowerCase();
+    const okQ = !q || full.includes(q);
+    const okS = !stage || r.stage === stage;
+    return okQ && okS;
   });
-
-  const container = document.querySelector('main.container');
-  const panel = q('#filters-panel');
-  const toggle = () => {
-    const off = container.classList.toggle('no-filters');
-    if (panel) panel.style.display = off ? 'none' : '';
-  };
-  on('#btn-toggle-filters','click', toggle);
 }
