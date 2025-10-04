@@ -1,10 +1,6 @@
-/* Added Maello logo alignment */
-.logo-title {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.logo {
-  height: 28px;
+.brand-logo {
+  width: 2cm;
+  height: 2cm;
   object-fit: contain;
+  display: block;
 }
