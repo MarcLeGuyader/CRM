@@ -1,7 +1,5 @@
-// 🔹 Full project bundler — capture absolutely everything under project root
-// Includes text, binary, and hidden files (.github, .env, .png, etc.)
-// Produces a single JSON with Base64 content for binaries
-// Version: Full Capture V1 - generated at runtime (France local time)
+// Full project bundler (GitHub API based) — captures absolutely everything from the branch
+// Works on GitHub Pages: lists files via GitHub REST API, fetches contents via raw.githubusercontent.com
 
 const $ = s => document.querySelector(s);
 const outTA = $("#out");
@@ -9,10 +7,14 @@ const statusEl = $("#status");
 const btnGen = $("#btn-gen");
 const btnCopy = $("#btn-copy");
 
+// Extensions courantes binaires (on peut en rajouter si besoin)
 const BIN_EXTS = [
-  ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico",
-  ".webp", ".pdf", ".woff", ".woff2", ".ttf", ".eot"
+  ".png",".jpg",".jpeg",".gif",".svg",".ico",".webp",
+  ".pdf",".woff",".woff2",".ttf",".eot",".otf",
+  ".zip",".gz",".mp4",".mov",".webm",".mp3",".wav"
 ];
+
+// -------- Helpers ------------------------------------------------------------
 
 const djb2 = (str) => {
   let h = 5381;
@@ -20,106 +22,113 @@ const djb2 = (str) => {
   return (h >>> 0).toString(16).padStart(8, "0");
 };
 
-// 🔸 Fetch text
-async function fetchText(path) {
-  const res = await fetch("../" + path);
-  if (!res.ok) throw new Error(`Fetch failed ${path}: ${res.status}`);
-  return await res.text();
+function isBinaryPath(p){
+  const low = p.toLowerCase();
+  return BIN_EXTS.some(ext => low.endsWith(ext));
 }
 
-// 🔸 Fetch binary -> Base64
-async function fetchBinary(path) {
-  const res = await fetch("../" + path);
-  if (!res.ok) throw new Error(`Binary fetch failed ${path}: ${res.status}`);
-  const buf = await res.arrayBuffer();
-  const bytes = new Uint8Array(buf);
-  let binary = "";
-  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-  return btoa(binary);
-}
-
-// 🔸 Fallback for hidden/.github files
-async function fetchRaw(path) {
-  const parts = location.pathname.split("/").filter(Boolean);
-  const repo = parts[0] || "";
+function detectRepo(){
+  // Ex: https://marcleguyader.github.io/CRM/tools/bundle.html
   const owner = location.hostname.split(".")[0];
+  const parts = location.pathname.split("/").filter(Boolean); // ["CRM","tools","bundle.html"]
+  const repo  = parts[0] || "";
   const branch = "main";
+  return { owner, repo, branch };
+}
+
+function ghBase(owner, repo){ return `https://api.github.com/repos/${owner}/${repo}`; }
+
+// -------- GitHub API: list tree ---------------------------------------------
+
+async function getBranchRef(owner, repo, branch){
+  const r = await fetch(`${ghBase(owner,repo)}/git/refs/heads/${branch}`, {
+    headers: { Accept: "application/vnd.github+json" }
+  });
+  if (!r.ok) throw new Error(`refs ${branch} -> ${r.status}`);
+  return r.json(); // { object: { sha: <commitSha> } }
+}
+
+async function getCommit(owner, repo, commitSha){
+  const r = await fetch(`${ghBase(owner,repo)}/git/commits/${commitSha}`, {
+    headers: { Accept: "application/vnd.github+json" }
+  });
+  if (!r.ok) throw new Error(`commit ${commitSha} -> ${r.status}`);
+  return r.json(); // { tree: { sha: <treeSha> } }
+}
+
+async function getTreeRecursive(owner, repo, treeSha){
+  const r = await fetch(`${ghBase(owner,repo)}/git/trees/${treeSha}?recursive=1`, {
+    headers: { Accept: "application/vnd.github+json" }
+  });
+  if (!r.ok) throw new Error(`tree ${treeSha} -> ${r.status}`);
+  const j = await r.json();
+  // ne garder que les blobs (fichiers)
+  return (j.tree || []).filter(x => x.type === "blob").map(x => x.path);
+}
+
+// -------- Fetch file content -------------------------------------------------
+
+async function fetchRawText(owner, repo, branch, path){
   const url = `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${path}`;
   const res = await fetch(url);
-  if (!res.ok) throw new Error(`Raw fetch failed ${path}: ${res.status}`);
+  if (!res.ok) throw new Error(`raw text ${path} -> ${res.status}`);
   return await res.text();
 }
 
-// 🔸 Try both fetch methods
-async function fetchAny(path, binary = false) {
-  try {
-    return binary ? await fetchBinary(path) : await fetchText(path);
-  } catch (e) {
-    if (path.startsWith(".github/")) {
-      return binary ? btoa(await fetchRaw(path)) : await fetchRaw(path);
-    }
-    throw e;
-  }
+async function fetchRawBinaryBase64(owner, repo, branch, path){
+  const url = `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${path}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`raw bin ${path} -> ${res.status}`);
+  const buf = await res.arrayBuffer();
+  const bytes = new Uint8Array(buf);
+  let bin = "";
+  for (let i=0;i<bytes.length;i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin);
 }
 
-// 🔸 Recursive file listing (no exclusions)
-async function listFiles(base = ".", prefix = "") {
-  const res = await fetch("../" + base);
-  const html = await res.text();
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(html, "text/html");
-  const links = Array.from(doc.querySelectorAll("a"))
-    .map(a => a.getAttribute("href"))
-    .filter(h => !!h && h !== "../");
+// -------- Main generation ----------------------------------------------------
 
-  const files = [];
-  for (const link of links) {
-    const path = prefix + link.replace(/\/$/, "");
-    const isDir = link.endsWith("/");
-    if (isDir) {
-      const sub = await listFiles(base + "/" + path, path + "/");
-      files.push(...sub);
-    } else {
-      files.push(path);
-    }
-  }
-  return files;
-}
-
-// 🔸 Generate JSON bundle
-async function generate() {
+async function generate(){
   btnGen.disabled = true;
   btnCopy.disabled = true;
-  statusEl.textContent = "Scanning project…";
+  statusEl.textContent = "Listing repository files via API…";
   outTA.value = "";
 
   try {
-    const files = await listFiles(".");
-    statusEl.textContent = `Found ${files.length} files. Reading all…`;
+    const { owner, repo, branch } = detectRepo();
 
+    // 1) Lister tous les fichiers du repo/branche via API
+    const ref = await getBranchRef(owner, repo, branch);
+    const commitSha = ref.object.sha;
+    const commit = await getCommit(owner, repo, commitSha);
+    const treeSha = commit.tree.sha;
+
+    const paths = await getTreeRecursive(owner, repo, treeSha);
+    statusEl.textContent = `Found ${paths.length} files. Fetching contents…`;
+
+    // 2) Télécharger chaque fichier (texte vs binaire)
     const items = [];
-    for (const p of files) {
+    for (const p of paths){
       try {
-        const lower = p.toLowerCase();
-        const isBinary = BIN_EXTS.some(ext => lower.endsWith(ext));
-        const content = await fetchAny(p, isBinary);
-        items.push({
-          path: p,
-          size: content.length,
-          type: isBinary ? "binary" : "text",
-          hash: djb2(content),
-          content
-        });
-      } catch (e) {
+        const binary = isBinaryPath(p);
+        if (binary){
+          const content = await fetchRawBinaryBase64(owner, repo, branch, p);
+          items.push({ path: p, size: content.length, type: "binary", hash: djb2(content), content });
+        } else {
+          const content = await fetchRawText(owner, repo, branch, p);
+          items.push({ path: p, size: content.length, type: "text", hash: djb2(content), content });
+        }
+      } catch (e){
         items.push({ path: p, error: String(e.message || e) });
       }
     }
 
+    // 3) Bundle JSON
     const now = new Date();
     const versionStr = now.toLocaleString("fr-FR", { timeZone: "Europe/Paris" });
     const bundle = {
       meta: {
-        project: "CRM_Modular_Full",
+        project: repo || "CRM_Modular_Full",
         version: `Full Project Capture - ${versionStr}`,
         generatedAt: now.toISOString(),
         totalFiles: items.length
@@ -130,15 +139,17 @@ async function generate() {
     outTA.value = JSON.stringify(bundle, null, 2);
     statusEl.textContent = `✅ Done — ${items.length} files captured.`;
     btnCopy.disabled = false;
-  } catch (e) {
+
+  } catch (e){
     statusEl.textContent = "❌ Error: " + (e.message || e);
   } finally {
     btnGen.disabled = false;
   }
 }
 
-// 🔸 Copy JSON output
-async function copyOut() {
+// -------- Copy ---------------------------------------------------------------
+
+async function copyOut(){
   try {
     await navigator.clipboard.writeText(outTA.value || "");
     statusEl.textContent = "Copied to clipboard.";
@@ -148,5 +159,6 @@ async function copyOut() {
   }
 }
 
+// Events
 btnGen.addEventListener("click", generate);
 btnCopy.addEventListener("click", copyOut);
