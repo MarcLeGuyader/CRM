@@ -7,6 +7,11 @@ const btnGen = $("#btn-gen");
 const btnCopy = $("#btn-copy");
 const logEl = $("#log");
 
+// Sécurise un libellé visible dès le chargement
+if (btnCopy && !btnCopy.textContent.trim()) {
+  btnCopy.textContent = "Copier le JSON";
+}
+
 function log(...args){
   const line = args.map(a=>typeof a==='object'?JSON.stringify(a):String(a)).join(' ');
   logEl.textContent += (logEl.textContent?'\n':'') + line;
@@ -166,6 +171,8 @@ async function generate(){
     outTA.value = JSON.stringify(bundle, null, 2);
     statusEl.textContent = `✅ Done — ${items.length} files captured.`;
     btnCopy.disabled = false;
+    // Remet le libellé explicite après génération
+    btnCopy.textContent = "Copier le JSON";
 
   } catch(e){
     statusEl.textContent = "❌ Error: " + (e.message || e);
@@ -175,9 +182,21 @@ async function generate(){
   }
 }
 
+// Remplacement de la fonction de copie avec feedback lisible
 async function copyOut(){
-  try { await navigator.clipboard.writeText(outTA.value || ""); statusEl.textContent = "Copied to clipboard."; }
-  catch { outTA.select(); document.execCommand("copy"); }
+  const original = btnCopy.textContent || "Copier le JSON";
+  try {
+    await navigator.clipboard.writeText(outTA.value || "");
+    btnCopy.textContent = "Copié ✓";
+    statusEl.textContent = "Copié dans le presse-papiers.";
+  } catch {
+    outTA.select();
+    document.execCommand("copy");
+    btnCopy.textContent = "Copié ✓";
+    statusEl.textContent = "Sélectionné — utilise Copier si besoin.";
+  } finally {
+    setTimeout(() => { btnCopy.textContent = original; }, 1500);
+  }
 }
 
 // init
