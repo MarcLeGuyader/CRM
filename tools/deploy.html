@@ -1,78 +1,68 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>CRM – Deploy to GitHub</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Deploy to GitHub</title>
   <link rel="stylesheet" href="../styles/main.css">
   <style>
     body { padding:16px; }
     .card { background:#fff; border:1px solid #e1e6eb; border-radius:12px; padding:16px; max-width:980px; margin:auto; }
     .row { display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
-    label.small { font-size:12px; color:#617387; }
-    input[type="text"], input[type="password"], textarea, select {
+    input, textarea, select {
       border:1px solid #d8dee6; border-radius:8px; padding:8px; font-size:14px; width:100%;
     }
-    textarea { height:220px; font-family:ui-monospace, SFMono-Regular, Menlo, monospace; }
+    textarea { height:220px; font-family:ui-monospace, SFMono-Regular, Menlo, monospace; white-space:pre-wrap; }
     .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
     .muted { color:#617387; font-size:12px; }
     .ok { color:#2f9e44; }
     .warn { color:#c92a2a; }
-    .btns { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-    .ghost { background:transparent; border:1px solid #c6d2df; }
-    .danger { background:#c92a2a; color:#fff; border-color:#c92a2a; }
+    .btns { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:12px 0; }
+    button { border:1px solid #c6d2df; border-radius:8px; padding:8px 12px; cursor:pointer; }
+    button.primary { background:#1e6091; color:#fff; border-color:#1e6091; }
+    button.ghost { background:transparent; }
   </style>
 </head>
 <body>
   <div class="card">
     <h1>Deploy to GitHub</h1>
-    <p class="muted">Colle un <b>bundle JSON</b> ou choisis un <b>ZIP</b>. L’outil commite directement dans ton dépôt.</p>
+    <p class="muted">
+      Paste a <b>bundle JSON</b> or select a <b>ZIP</b> bundle. This tool commits directly to your repository using the GitHub API.
+    </p>
 
     <div class="grid-2">
-      <div>
-        <label>GitHub Owner <input id="gh-owner" type="text" placeholder="marcleguyader"></label>
-      </div>
-      <div>
-        <label>Repository <input id="gh-repo" type="text" placeholder="CRM"></label>
-      </div>
-      <div>
-        <label>Branch <input id="gh-branch" type="text" placeholder="main" value="main"></label>
-      </div>
-      <div>
-        <label>Commit message <input id="gh-message" type="text" placeholder="Deploy from bundle/zip"></label>
-      </div>
-      <div>
-        <label>Token (PAT) <input id="gh-token" type="password" placeholder="ghp_xxx (repo scope)"></label>
-        <label class="small">Utilise un <b>token à portée limitée</b> (fine-grained) sur <i>ce dépôt uniquement</i>. Il reste en mémoire de la page, non sauvegardé.</label>
-      </div>
-      <div>
-        <label>Mode
-          <select id="mode">
-            <option value="patch">Patch (ajoute/met à jour seulement)</option>
-            <option value="replace">Remplacer tout (supprime les fichiers absents)</option>
-          </select>
-        </label>
-      </div>
+      <label>GitHub Owner <input id="gh-owner" type="text" placeholder="marcleguyader"></label>
+      <label>Repository <input id="gh-repo" type="text" placeholder="CRM"></label>
+      <label>Branch <input id="gh-branch" type="text" placeholder="main" value="main"></label>
+      <label>Commit message <input id="gh-message" type="text" placeholder="Deploy from bundle"></label>
+      <label>Token (PAT) <input id="gh-token" type="password" placeholder="ghp_xxx (repo scope)"></label>
+      <label>Mode
+        <select id="mode">
+          <option value="patch">Patch (add/update only)</option>
+          <option value="replace">Replace all (delete missing)</option>
+        </select>
+      </label>
     </div>
 
     <hr>
 
     <details>
-      <summary><b>Importer un bundle JSON</b> (colle ici)</summary>
+      <summary><b>Paste JSON bundle</b></summary>
       <textarea id="json-in" placeholder='{"meta": {...}, "files":[{"path":"index.html","content":"..."}]}'></textarea>
     </details>
 
-    <p class="muted">ou bien</p>
+    <p class="muted">or upload a ZIP file:</p>
 
     <div class="row">
       <input id="zip-in" type="file" accept=".zip">
-      <span class="muted">ZIP: l’arborescence du ZIP sera poussée telle quelle à la racine du repo (sauf <code>tools/deploy.*</code>).</span>
+      <span class="muted">ZIP content will be deployed at repository root (except <code>tools/deploy.*</code>).</span>
     </div>
 
-    <div class="btns" style="margin:12px 0">
-      <button id="btn-validate">Valider l’entrée</button>
-      <button id="btn-dryrun" class="ghost">Dry run (prévisualiser)</button>
-      <button id="btn-deploy" class="primary" disabled>Déployer</button>
+    <div class="btns">
+      <button id="btn-validate">Validate</button>
+      <button id="btn-dryrun" class="ghost">Dry run</button>
+      <button id="btn-deploy" class="primary" disabled>Deploy</button>
+      <button id="btn-dl-json" class="ghost" disabled>Download JSON</button>
       <span id="status" class="muted">Ready.</span>
     </div>
 
@@ -82,7 +72,6 @@
     </details>
   </div>
 
-  <!-- JSZip pour lecture ZIP côté client -->
   <script defer src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
   <script type="module" src="./deploy.js"></script>
 </body>
