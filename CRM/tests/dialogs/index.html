@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CRM Tests · dialogs</title>
+  <link rel="stylesheet" href="../../modules/dialogs/dialogs.css">
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,sans-serif;padding:16px}
+    .row{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+    .log{white-space:pre-wrap;background:#0b1020;color:#e5e7eb;padding:8px;border-radius:8px;max-height:240px;overflow:auto}
+  </style>
+</head>
+<body>
+  <h1>CRM · dialogs · test</h1>
+
+  <div id="host"></div>
+
+  <div class="row">
+    <button id="t1" class="btn">Open Opportunity (stack)</button>
+    <button id="t2" class="btn">Open Company from Opp</button>
+    <button id="t3" class="btn">Open Contact from Company</button>
+    <button id="closeTop" class="btn">Close Top</button>
+  </div>
+
+  <h3>Event Log</h3>
+  <div id="log" class="log"></div>
+
+  <script type="module">
+    import { bus } from './bus.js';
+    import { mountDialogs } from '../../modules/dialogs/dialogs.js';
+
+    const logEl = document.getElementById('log');
+    function log(...a){
+      const line = a.map(x => typeof x==='object'? JSON.stringify(x): String(x)).join(' ');
+      logEl.textContent += (logEl.textContent?'\n':'') + line;
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    // Optionally watch dialog topics if any are emitted later
+    bus.on('dialogs.closeTop', () => log('[evt] dialogs.closeTop'));
+
+    const host = document.getElementById('host');
+    const companyNames = { 'C-001':'Globex', 'C-002':'Initech' };
+    const contactNames = { 'P-100':'John Doe', 'P-200':'Jane Roe' };
+
+    const dialogs = mountDialogs(host, {
+      bus,
+      resolveCompanyName: id => companyNames[id] || '',
+      resolveContactName: id => contactNames[id] || ''
+    });
+
+    document.getElementById('t1').addEventListener('click', ()=>{
+      dialogs.open('opportunity', { id:'OPP-000777', name:'Pilot', salesStep:'Qualified', companyId:'C-001', contactId:'P-100' });
+    });
+    document.getElementById('t2').addEventListener('click', ()=>{
+      dialogs.open('company', { id:'C-001', name:companyNames['C-001'], contacts:[{id:'P-100', name:'John Doe'}] });
+    });
+    document.getElementById('t3').addEventListener('click', ()=>{
+      dialogs.open('contact', { id:'P-100', name:'John Doe', companyId:'C-001' });
+    });
+    document.getElementById('closeTop').addEventListener('click', ()=> dialogs.closeTop());
+
+    log('Test page ready.');
+  </script>
+</body>
+</html>
