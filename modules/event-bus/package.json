@@ -1,0 +1,8 @@
+{
+  "name": "crm-event-bus",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Minimal synchronous pub/sub Event Bus for CRM modules",
+  "exports": "./bus.js",
+  "license": "MIT"
+}
