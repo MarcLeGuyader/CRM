@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 00 — Event Bus Demo</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="banner">
+    <div class="left">
+      <h1 class="title">CRM • Event Bus Demo</h1>
+      <button id="btn-filter">Filter</button>
+      <button id="btn-new">+ New opportunity</button>
+    </div>
+    <div class="right">
+      <button id="btn-debug">🐞 Debug</button>
+      <button id="btn-reset">⟲ Reset</button>
+      <button id="btn-upload">Upload Excel CRM data</button>
+      <button id="btn-export">Export Excel CRM</button>
+      <button id="btn-save">Save</button>
+      <button id="btn-clear" class="outline">Clear Listeners</button>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="card">
+      <h2>Active Topics</h2>
+      <p id="topics" class="muted"></p>
+    </section>
+
+    <section class="card">
+      <h2>Event Log</h2>
+      <div id="log" class="log"></div>
+    </section>
+  </main>
+
+  <script type="module" src="./main.js"></script>
+</body>
+</html>
