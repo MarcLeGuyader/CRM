@@ -1,0 +1,26 @@
+:root{
+  --brand: rgb(75,134,128);
+  --alt-row: rgb(216,214,208);
+  --text: #0f172a;
+  --bg: #ffffff;
+  --muted: #6b7280;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif;color:var(--text);background:var(--bg)}
+.banner{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:10px 16px; background:var(--brand); color:white; gap:12px;
+  flex-wrap:wrap; position:sticky; top:0; z-index:10;
+}
+.banner .left{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.banner .right{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.logo{height:28px;width:auto}
+.title{margin:0 8px 0 4px;font-size:22px;letter-spacing:.5px}
+.btn{border:none;border-radius:14px;padding:8px 12px;background:#fff;color:var(--text);
+  box-shadow:0 0 0 1px rgba(0,0,0,.06);cursor:pointer}
+.btn:hover{box-shadow:0 0 0 2px rgba(0,0,0,.12)}
+.btn.primary{background:#fff}
+.btn.success{background:#eaffea}
+.btn.outline{background:#fff}
+.btn.small{padding:6px 10px;border-radius:12px}
+#log{white-space:pre-wrap; font-family:ui-monospace, SFMono-Regular, Menlo, monospace; border-top:1px solid #e5e7eb; padding:12px; background:#0b1020; color:#dbe1f0; max-height:280px; overflow:auto}
