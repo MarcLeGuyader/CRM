@@ -1,0 +1,7 @@
+
+body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif;margin:0;padding:16px;background:#f7fafc}
+.wrap{max-width:1000px;margin:0 auto}
+.results{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}
+.case{padding:8px 10px;border-radius:8px}
+.case.ok{background:#eaffea;border:1px solid #a7f3a7}
+.case.ko{background:#fde2e2;border:1px solid #f5a2a2}
