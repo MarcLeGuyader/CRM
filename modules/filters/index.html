@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Filters Module – Demo</title>
+  <link rel="stylesheet" href="./filters.css">
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif;margin:0}
+    header{background:rgb(75,134,128);color:#fff;padding:10px 16px;display:flex;gap:8px;justify-content:space-between;align-items:center}
+    .btn{border:1px solid rgba(255,255,255,.3);background:#fff;color:#0f172a;border-radius:8px;padding:8px 12px;cursor:pointer}
+    main{padding:16px}
+    pre{background:#0b1020;color:#e5e7eb;padding:12px;border-radius:8px;max-height:240px;overflow:auto}
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <strong>CRM</strong>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="btn" id="btn-filter">Filter</button>
+      <button class="btn" id="btn-reset">⟲ Reset</button>
+    </div>
+  </header>
+
+  <div id="filters-container"></div>
+
+  <main>
+    <h3>Event Log</h3>
+    <pre id="log"></pre>
+  </main>
+
+  <script type="module">
+    // Tiny Bus for demo
+    const bus = (()=>{
+      const map = new Map();
+      return {
+        on(topic, h){ if(!map.has(topic)) map.set(topic,new Set()); map.get(topic).add(h); return ()=>map.get(topic)?.delete(h); },
+        emit(topic, payload){ (map.get(topic)||[]).forEach(h=>{ try{h(payload);}catch(e){console.error(e)} }); },
+      };
+    })();
+
+    import { createFiltersModule } from './filters.js';
+
+    const logger = document.getElementById('log');
+    const log = (topic, payload) => {
+      const line = `[${new Date().toISOString()}] ${topic} ${JSON.stringify(payload||{})}\n`;
+      logger.textContent += line;
+      logger.scrollTop = logger.scrollHeight;
+      console.log(line);
+    };
+
+    // Subscribe to filters.* topics
+    ['filters.changed','filters.cleared','filters.toggled'].forEach(t=> bus.on(t, p=>log(t,p)));
+
+    // Wire header buttons
+    document.getElementById('btn-filter').addEventListener('click', ()=> bus.emit('ui.banner.filter', { ts: Date.now() }));
+    document.getElementById('btn-reset').addEventListener('click',  ()=> bus.emit('ui.banner.reset',  { ts: Date.now() }));
+
+    // Mount module
+    const { mount } = createFiltersModule(bus);
+    const api = mount(document.getElementById('filters-container'), {
+      q: '',
+      client: '',
+      closeDate: {},
+      salesStep: ''
+    });
+
+    // Expose for console
+    window.bus = bus;
+    window.filters = api;
+  </script>
+</body>
+</html>
