@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dialogs Module — Test Harness</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="wrap">
+    <h1>Dialogs Module — Test Harness</h1>
+    <div class="btns">
+      <button id="btn-open-opp">Open Opportunity</button>
+      <button id="btn-open-comp">Open Company (C-100)</button>
+      <button id="btn-open-cont">Open Contact (P-200)</button>
+      <button id="btn-validate-ok">Emit Validate OK</button>
+      <button id="btn-validate-ko">Emit Validate KO</button>
+      <button id="btn-save-ok">Emit Save OK</button>
+      <button id="btn-save-ko">Emit Save KO</button>
+      <button id="btn-clear">Clear Bus Listeners</button>
+    </div>
+
+    <div id="dialogs-host"></div>
+
+    <details open>
+      <summary><b>Event Log</b></summary>
+      <pre id="log"></pre>
+    </details>
+  </div>
+
+  <script type="module">
+    import { createBus } from "../../modules/event-bus/bus.js";
+    import { mountDialogs } from "../../modules/dialogs/dialogs.js";
+
+    const logEl = document.getElementById('log');
+    function log(topic, payload){
+      const line = `[${new Date().toISOString()}] ${topic} ${JSON.stringify(payload || {})}`;
+      logEl.textContent += (logEl.textContent ? "\n" : "") + line;
+      logEl.scrollTop = logEl.scrollHeight;
+      console.log(line);
+    }
+
+    // Sample in-memory data
+    const companies = { "C-100": { id: "C-100", name: "Acme Corp" } };
+    const contacts  = { "P-200": { id: "P-200", displayName: "Alice Martin", companyId: "C-100" } };
+
+    // Create bus + subscribe to everything we emit for logging
+    const bus = createBus();
+    const topics = [
+      "dialogs.open.opportunity","dialogs.open.company","dialogs.open.contact",
+      "dialogs.close",
+      "opps.validate.request","opps.validate.result",
+      "opps.save.request","opps.save.result"
+    ];
+    topics.forEach(t => bus.on(t, (p)=>log(t,p)));
+
+    // Mount dialogs
+    const host = document.getElementById('dialogs-host');
+    const dialogs = mountDialogs({
+      container: host,
+      bus,
+      resolvers: {
+        resolveCompanyName: id => companies[id]?.name,
+        resolveContactName: id => contacts[id]?.displayName,
+        getContactsByCompanyId: id => Object.values(contacts).filter(c => c.companyId === id),
+        getCompanyIdByContactId: cid => contacts[cid]?.companyId,
+      }
+    });
+
+    // Buttons
+    document.getElementById('btn-open-opp').addEventListener('click', () => {
+      bus.emit('dialogs.open.opportunity', { draft: { name: 'New Deal', client: 'Acme', owner: 'Marc', companyId: 'C-100', contactId: 'P-200', closingValue: 12000 } });
+    });
+    document.getElementById('btn-open-comp').addEventListener('click', () => {
+      bus.emit('dialogs.open.company', { companyId: 'C-100' });
+    });
+    document.getElementById('btn-open-cont').addEventListener('click', () => {
+      bus.emit('dialogs.open.contact', { contactId: 'P-200' });
+    });
+
+    document.getElementById('btn-validate-ok').addEventListener('click', () => {
+      bus.emit('opps.validate.result', { ok: true });
+    });
+    document.getElementById('btn-validate-ko').addEventListener('click', () => {
+      bus.emit('opps.validate.result', { ok: false, errors: [
+        { field: 'name', code: 'required', message: 'Name is required' },
+        { field: 'salesStep', code: 'invalid', message: 'Unknown step' }
+      ]});
+    });
+    document.getElementById('btn-save-ok').addEventListener('click', () => {
+      bus.emit('opps.save.result', { ok: true, id: 'OPP-000123' });
+    });
+    document.getElementById('btn-save-ko').addEventListener('click', () => {
+      bus.emit('opps.save.result', { ok: false, errors: ['Server error'] });
+    });
+
+    document.getElementById('btn-clear').addEventListener('click', () => {
+      // Not strictly needed here; present for parity with other harnesses
+      log('tests', { note: 'No bus.clear in harness (listeners remain for logging)' });
+    });
+  </script>
+</body>
+</html>
