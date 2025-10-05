@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Debug Console – Test</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Arial, sans-serif; margin:0; }
+    header { display:flex; gap:8px; align-items:center; justify-content:space-between; padding:10px 12px; background:rgb(75,134,128); color:#fff; position:sticky; top:0; }
+    .left, .right { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .btn { border:1px solid rgba(255,255,255,.25); background:#fff; color:#0f172a; border-radius:8px; padding:8px 12px; cursor:pointer; }
+    .wrap { padding:12px; }
+    .card { border:1px solid #e5e7eb; border-radius:12px; padding:12px; max-width:900px; background:#fff;}
+    .row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+    .mini { color:#64748b; font-size:12px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="left">
+      <strong>CRM</strong>
+      <button id="btn-toggle-debug" class="btn">🐞 Debug</button>
+      <button id="btn-emit-random" class="btn">Emit random event</button>
+    </div>
+    <div class="right">
+      <span class="mini">Test page for module 08 – Debug Console</span>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <div class="card">
+      <div class="row">
+        <button id="btn-emit-filter" class="btn">Emit ui.banner.filter</button>
+        <button id="btn-emit-new" class="btn">Emit ui.banner.new</button>
+        <button id="btn-emit-save" class="btn">Emit ui.banner.save</button>
+      </div>
+      <p class="mini">Use the buttons above to emit events on the bus and then toggle the debug console to see logs.</p>
+    </div>
+  </div>
+
+  <!-- Try to load your real bus, else fallback to a shim -->
+  <script>
+    (function ensureBus(){
+      function makeShim(){
+        const map = new Map();
+        return {
+          on(topic, handler){ if(!map.has(topic)) map.set(topic, new Set()); map.get(topic).add(handler); return ()=>map.get(topic)?.delete(handler); },
+          emit(topic, payload){ const set = map.get(topic); if(!set) return 0; Array.from(set).forEach(fn=>{ try{ fn(payload);}catch(e){ console.error(e);} }); return set.size; },
+          count(topic){ if(!topic){ let c=0; map.forEach(s=>c+=s.size); return c; } const s=map.get(topic); return s? s.size:0; },
+          clear(topic){ if(!topic){ map.clear(); return; } map.delete(topic); }
+        };
+      }
+      if(!window.bus){ try{ /* attempt dynamic import path if exists */ }catch{} }
+      if(!window.bus){ window.bus = makeShim(); console.warn('[tests] Using local bus shim'); }
+    })();
+  </script>
+
+  <!-- Module under test -->
+  <script src="../../modules/debug-console/debug-console.js"></script>
+
+  <script>
+    (function(){
+      const app = document.body;
+      const api = window.DebugConsole.mount(app);
+
+      // Wire test buttons
+      document.getElementById('btn-toggle-debug').addEventListener('click', () => {
+        // Simulate banner click by emitting the real event the module listens to
+        bus.emit('ui.banner.debug', { ts: Date.now() });
+      });
+      document.getElementById('btn-emit-random').addEventListener('click', () => {
+        const topics = ['opps.updated','data.loaded','filters.changed','ui.banner.save'];
+        const t = topics[Math.floor(Math.random()*topics.length)];
+        const payload = { ts: Date.now(), note:'random' };
+        api.log(t, payload); // direct log also works
+      });
+      document.getElementById('btn-emit-filter').addEventListener('click', () => {
+        bus.emit('ui.banner.filter', { ts: Date.now() });
+        api.log('ui.banner.filter', { source:'manual' });
+      });
+      document.getElementById('btn-emit-new').addEventListener('click', () => {
+        bus.emit('ui.banner.new', { ts: Date.now() });
+        api.log('ui.banner.new', { source:'manual' });
+      });
+      document.getElementById('btn-emit-save').addEventListener('click', () => {
+        bus.emit('ui.banner.save', { ts: Date.now() });
+        api.log('ui.banner.save', { source:'manual' });
+      });
+    })();
+  </script>
+</body>
+</html>
