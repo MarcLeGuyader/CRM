@@ -1,67 +1,108 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>CRM Tests · dialogs</title>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Dialogs Module – Test Harness</title>
   <link rel="stylesheet" href="../../modules/dialogs/dialogs.css">
   <style>
-    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,sans-serif;padding:16px}
-    .row{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
-    .log{white-space:pre-wrap;background:#0b1020;color:#e5e7eb;padding:8px;border-radius:8px;max-height:240px;overflow:auto}
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Arial, sans-serif; padding: 16px; }
+    .row { display:flex; gap:8px; flex-wrap: wrap; margin-bottom: 12px; }
+    button { border:1px solid #e5e7eb; border-radius:8px; padding:8px 12px; background:#fff; cursor:pointer; }
+    .warn { color:#c92a2a; }
+    pre { background:#0b1020; color:#e5e7eb; padding:8px; border-radius:8px; max-height:240px; overflow:auto; }
   </style>
 </head>
 <body>
-  <h1>CRM · dialogs · test</h1>
-
-  <div id="host"></div>
-
-  <div class="row">
-    <button id="t1" class="btn">Open Opportunity (stack)</button>
-    <button id="t2" class="btn">Open Company from Opp</button>
-    <button id="t3" class="btn">Open Contact from Company</button>
-    <button id="closeTop" class="btn">Close Top</button>
+  <h1>Dialogs Module – Test Harness</h1>
+  <p>This page expects your Event Bus at <code>../../modules/event-bus/event-bus.js</code>.</p>
+  <div id="bus-missing" class="warn" style="display:none">
+    ❗ Event Bus not found. Please place your bus at <code>modules/event-bus/event-bus.js</code> (exporting <code>{ bus }</code>).
   </div>
 
-  <h3>Event Log</h3>
-  <div id="log" class="log"></div>
+  <div class="row">
+    <button id="btn-open-opp">Open Opportunity (existing)</button>
+    <button id="btn-open-opp-new">Open Opportunity (new)</button>
+    <button id="btn-open-company">Open Company</button>
+    <button id="btn-open-contact">Open Contact</button>
+  </div>
+
+  <h3>Event log</h3>
+  <pre id="log"></pre>
 
   <script type="module">
-    import { bus } from './bus.js';
-    import { mountDialogs } from '../../modules/dialogs/dialogs.js';
-
     const logEl = document.getElementById('log');
-    function log(...a){
-      const line = a.map(x => typeof x==='object'? JSON.stringify(x): String(x)).join(' ');
-      logEl.textContent += (logEl.textContent?'\n':'') + line;
+    function log(msg, obj){
+      const ts = new Date().toISOString();
+      logEl.textContent += `\n[${ts}] ${msg} ${obj ? JSON.stringify(obj) : ''}`;
       logEl.scrollTop = logEl.scrollHeight;
+      console.log('[TEST]', msg, obj||'');
     }
 
-    // Optionally watch dialog topics if any are emitted later
-    bus.on('dialogs.closeTop', () => log('[evt] dialogs.closeTop'));
+    let bus;
+    try {
+      const m = await import('../../modules/event-bus/event-bus.js');
+      bus = m.bus;
+    } catch (e) {
+      document.getElementById('bus-missing').style.display = 'block';
+      console.error('Bus import failed', e);
+      // Provide a tiny fallback so you can still see the UI, but recommend using your real bus.
+      const map = new Map();
+      bus = {
+        on(t, h){ let s = map.get(t); if(!s){ s = new Set(); map.set(t,s);} s.add(h); return () => s.delete(h); },
+        emit(t, p){ const s = map.get(t); if(!s) return 0; [...s].forEach(fn=>fn(p)); return s.size; },
+        clear(){ map.clear(); },
+        count(){ let c=0; map.forEach(s=>c+=s.size); return c; }
+      };
+      log('Using in-page fallback bus (development only)');
+    }
 
-    const host = document.getElementById('host');
-    const companyNames = { 'C-001':'Globex', 'C-002':'Initech' };
-    const contactNames = { 'P-100':'John Doe', 'P-200':'Jane Roe' };
+    const { mountDialogs } = await import('../../modules/dialogs/dialogs.js');
 
-    const dialogs = mountDialogs(host, {
-      bus,
-      resolveCompanyName: id => companyNames[id] || '',
-      resolveContactName: id => contactNames[id] || ''
+    // --- simple resolvers/mocks for demo
+    function resolveCompanyName(id){ return id ? 'Acme Corp ('+id+')' : ''; }
+    function resolveContactName(id){ return id ? 'John Doe ('+id+')' : ''; }
+    function listContactsByCompany(id){ return [{ id: 'P001', displayName: 'Alice' }, { id: 'P002', displayName: 'Bob' }]; }
+    function getOpportunityById(id){
+      if (id === 'OPP-000001') return {
+        id, name:'Migration CRM', salesStep:'Discovery', client:'Maello', owner:'Marc',
+        companyId:'C001', contactId:'P001', notes:'Demo', closingValue: 12000
+      };
+      return null;
+    }
+
+    const dialogs = mountDialogs({ bus, resolveCompanyName, resolveContactName, listContactsByCompany, getOpportunityById });
+
+    // echo validator/saver (mocks)
+    bus.on('opps.validate.request', ({ requestId, draft }) => {
+      log('opps.validate.request', { requestId, draft });
+      // quick "validation": name required
+      if (!draft.name) {
+        bus.emit('opps.validate.result', { requestId, ok:false, errors:[{ field:'name', code:'required', message:'Name is required' }] });
+      } else {
+        bus.emit('opps.validate.result', { requestId, ok:true });
+      }
     });
 
-    document.getElementById('t1').addEventListener('click', ()=>{
-      dialogs.open('opportunity', { id:'OPP-000777', name:'Pilot', salesStep:'Qualified', companyId:'C-001', contactId:'P-100' });
+    bus.on('opps.save.request', ({ requestId, draft }) => {
+      log('opps.save.request', { requestId, draft });
+      // pretend save ok
+      bus.emit('opps.save.result', { requestId, ok:true, id: draft.id || 'OPP-NEW' });
     });
-    document.getElementById('t2').addEventListener('click', ()=>{
-      dialogs.open('company', { id:'C-001', name:companyNames['C-001'], contacts:[{id:'P-100', name:'John Doe'}] });
-    });
-    document.getElementById('t3').addEventListener('click', ()=>{
-      dialogs.open('contact', { id:'P-100', name:'John Doe', companyId:'C-001' });
-    });
-    document.getElementById('closeTop').addEventListener('click', ()=> dialogs.closeTop());
 
-    log('Test page ready.');
+    // buttons
+    document.getElementById('btn-open-opp').addEventListener('click', () => {
+      bus.emit('dialogs.open.opportunity', { id:'OPP-000001' });
+    });
+    document.getElementById('btn-open-opp-new').addEventListener('click', () => {
+      bus.emit('dialogs.open.opportunity', {});
+    });
+    document.getElementById('btn-open-company').addEventListener('click', () => {
+      bus.emit('dialogs.open.company', { companyId:'C001' });
+    });
+    document.getElementById('btn-open-contact').addEventListener('click', () => {
+      bus.emit('dialogs.open.contact', { contactId:'P001' });
+    });
   </script>
 </body>
 </html>
