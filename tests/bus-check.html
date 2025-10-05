@@ -1,95 +1,143 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="utf-8"/>
   <title>Event Bus Check</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <style>
-    :root{--ok:#155724;--okbg:#d4edda;--bad:#721c24;--badbg:#f8d7da}
-    body{font-family:system-ui,sans-serif;background:#f2f2f2;margin:0;display:grid;place-items:center;height:100vh}
-    .box{padding:1.5rem 2rem;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.12);background:#fff;min-width:360px}
-    .row{margin:.25rem 0}
-    .ok{background:var(--okbg);color:var(--ok)}
-    .bad{background:var(--badbg);color:var(--bad)}
-    code{background:#eee;padding:.1rem .3rem;border-radius:6px}
-    button{margin-top:1rem;padding:.4rem .8rem}
-    details{margin-top:1rem}
-    pre{white-space:pre-wrap;word-break:break-word;background:#111;color:#eee;padding:.75rem;border-radius:8px;max-height:40vh;overflow:auto}
+    :root{--ok:#155724;--okbg:#d4edda;--bad:#721c24;--badbg:#f8d7da;--muted:#667085}
+    body{font-family:system-ui,sans-serif;background:#f2f4f7;margin:0;display:grid;place-items:center;min-height:100vh}
+    .card{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:18px;max-width:680px;width:92%}
+    h1{margin:.2rem 0 0.6rem}
+    .row{margin:.35rem 0}
+    .ok{background:var(--okbg);color:var(--ok);padding:.4rem .6rem;border-radius:8px}
+    .bad{background:var(--badbg);color:var(--bad);padding:.4rem .6rem;border-radius:8px}
+    code{background:#eef2f6;padding:.06rem .35rem;border-radius:6px}
+    button{padding:.45rem .8rem;border:1px solid #e5e7eb;border-radius:8px;background:#fff;cursor:pointer}
+    button+button{margin-left:.4rem}
+    details{margin-top:.6rem}
+    pre{white-space:pre-wrap;background:#0b1020;color:#e6edf3;border-radius:10px;padding:.75rem;max-height:40vh;overflow:auto;font-size:12.5px}
+    .muted{color:var(--muted);font-size:13px}
+    .grid{display:grid;grid-template-columns:1fr auto;gap:.5rem;align-items:center}
   </style>
 </head>
 <body>
-  <div class="box">
+  <div class="card">
+    <h1>Event Bus Check</h1>
+    <div class="row muted">Looks for <code>./modules/event-bus/bus.js</code> and falls back to <code>window.bus</code>.</div>
+
     <div id="status" class="row">Checking Event Bus…</div>
-    <div class="row" id="how"></div>
-    <button id="rerun">Re-run check</button>
+    <div id="how" class="row muted"></div>
+
+    <div class="row" style="margin-top:.6rem">
+      <button id="btn-rerun">Re-run check</button>
+      <button id="btn-demo" disabled>Run demo (subscribe/emit)</button>
+      <button id="btn-clear" disabled>Clear all listeners</button>
+    </div>
+
     <details>
-      <summary>Debug log</summary>
+      <summary><b>Debug log</b></summary>
       <pre id="log"></pre>
     </details>
   </div>
 
-  <script>
-    const logEl = document.getElementById('log');
-    function log(...a){ logEl.textContent += (logEl.textContent?'\n':'') + a.join(' '); }
+<script>
+const logEl = document.getElementById('log');
+function log(...a){ logEl.textContent += (logEl.textContent?'\n':'') + a.map(x=>typeof x==='object'?JSON.stringify(x):String(x)).join(' '); }
 
-    async function tryImport(path){
-      try{
-        log('trying import:', path);
-        const mod = await import(path);
-        if (mod && mod.bus) return { ok:true, via:'ESM import', path, bus:mod.bus };
-        return { ok:false, err:'Module loaded but no `bus` export', path };
-      }catch(e){
-        return { ok:false, err:String(e), path };
-      }
+async function importBusAt(path){
+  try{
+    log('trying import:', path);
+    const mod = await import(path);
+    if (mod && mod.bus){
+      return { ok:true, via:'ESM import', path, bus:mod.bus };
     }
+    return { ok:false, path, err:'no named export `bus`' };
+  }catch(e){
+    return { ok:false, path, err: String(e?.message || e) };
+  }
+}
 
-    async function check(){
-      const status = document.getElementById('status');
-      const how = document.getElementById('how');
-      status.textContent = 'Checking Event Bus…';
-      status.className = '';
+async function check(){
+  const status = document.getElementById('status');
+  const how = document.getElementById('how');
+  const btnDemo = document.getElementById('btn-demo');
+  const btnClear = document.getElementById('btn-clear');
 
-      // 1) Global fallback
-      if (window.bus){
-        status.textContent = '✅ Event Bus detected (global `window.bus`)';
-        status.className = 'ok';
-        how.innerHTML = 'Found via <code>window.bus</code>.';
-        log('found window.bus');
-        return;
-      }
+  status.textContent = 'Checking Event Bus…';
+  status.className = '';
+  btnDemo.disabled = true;
+  btnClear.disabled = true;
 
-      // 2) Try common module paths relative to /tests/…
-      const guesses = [
-        '../modules/event-bus.js',
-        './modules/event-bus.js',
-        '/CRM/modules/event-bus.js',
-        '/modules/event-bus.js'
-      ];
-      for (const g of guesses){
-        const r = await tryImport(g);
-        if (r.ok){
-          // Make it global for other modules if you want:
-          window.bus = r.bus;
-          status.textContent = '✅ Event Bus detected (ESM import)';
-          status.className = 'ok';
-          how.innerHTML = `Imported from <code>${g}</code>.`;
-          log('import ok from', g);
-          return;
-        } else {
-          log(`import failed from ${g}: ${r.err}`);
-        }
-      }
+  // 1) Try the exact path you gave: ./modules/event-bus/bus.js (relative to /tests/)
+  const mainPath = '../modules/event-bus/bus.js';
+  let found = null;
 
-      status.textContent = '❌ Event Bus NOT found';
-      status.className = 'bad';
-      how.innerHTML =
-        'Fix one of these:<br>' +
-        '• Ensure the file exists at <code>/modules/event-bus.js</code> (or adjust the path).<br>' +
-        '• Ensure it <code>export const bus = …</code> (ESM).<br>' +
-        '• (Optional) Also set <code>window.bus = bus;</code> so tests can find it globally.';
-    }
+  // If a previous global exists, clear it to avoid false positives during re-run
+  if (window.__busTest_unsub){ try{ window.__busTest_unsub(); }catch{} window.__busTest_unsub = null; }
 
-    document.getElementById('rerun').addEventListener('click', check);
-    check();
-  </script>
+  let res = await importBusAt(mainPath);
+  if (res.ok){
+    window.bus = res.bus; // expose globally for other tests if you want
+    found = res;
+  } else {
+    log('import failed at', mainPath, '→', res.err);
+  }
+
+  // 2) Fallback: window.bus
+  if (!found && window.bus){
+    found = { ok:true, via:'global window.bus', path:'<global>', bus: window.bus };
+  }
+
+  if (!found){
+    status.textContent = '❌ Event Bus NOT found';
+    status.className = 'bad';
+    how.innerHTML = 'Ensure the file exists at <code>/modules/event-bus/bus.js</code> and that it <code>export const bus = …</code>.<br>'+
+                    'From <code>/tests/bus-check.html</code> the relative import is <code>../modules/event-bus/bus.js</code>.';
+    return;
+  }
+
+  status.textContent = '✅ Event Bus detected';
+  status.className = 'ok';
+  how.innerHTML = `Found via <code>${found.via}</code> (${found.path}).`;
+
+  // Enable demo buttons now that we have a bus
+  btnDemo.disabled = false;
+  btnClear.disabled = false;
+
+  // Prepare a demo listener (but don’t attach yet; it’s done in the demo button)
+  window.__busTest_listener = (payload)=>{
+    log('[demo] received topic "demo.ping" with payload:', payload);
+    const s = document.getElementById('status');
+    s.textContent = '✅ Received demo.ping → ' + JSON.stringify(payload);
+    s.className = 'ok';
+  };
+}
+
+document.getElementById('btn-rerun').addEventListener('click', check);
+
+document.getElementById('btn-demo').addEventListener('click', ()=>{
+  if (!window.bus){ alert('bus not found'); return; }
+  // subscribe
+  if (window.__busTest_unsub){ try{ window.__busTest_unsub(); }catch{} }
+  window.__busTest_unsub = window.bus.on('demo.ping', window.__busTest_listener);
+  log('subscribed to "demo.ping"');
+  // emit
+  const count = window.bus.emit('demo.ping', { ts: Date.now(), hello:'world' });
+  log('emitted "demo.ping" to', count, 'listener(s)');
+});
+
+document.getElementById('btn-clear').addEventListener('click', ()=>{
+  if (!window.bus){ alert('bus not found'); return; }
+  window.bus.clear(); // using your bus.clear()
+  if (window.__busTest_unsub){ try{ window.__busTest_unsub(); }catch{} window.__busTest_unsub = null; }
+  const status = document.getElementById('status');
+  status.textContent = 'ℹ️ Cleared all listeners (bus.clear())';
+  status.className = '';
+  log('bus.clear() called');
+});
+
+check(); // auto-run on load
+</script>
 </body>
 </html>
