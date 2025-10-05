@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>Import/Export Module Test</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <!-- SheetJS for XLSX support -->
+  <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Arial, sans-serif; margin:20px; }
+    .row { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+    button { padding:8px 12px; border:1px solid #d0d7de; border-radius:8px; background:#fff; cursor:pointer; }
+    pre { background:#0b1020; color:#cbd5e1; padding:12px; border-radius:8px; max-height:300px; overflow:auto; }
+    .badge { font-size:12px; color:#555; }
+  </style>
+</head>
+<body>
+  <h1>Import/Export Module – Test Harness</h1>
+  <p class="badge">If your global <code>window.bus</code> exists, it will be used. Otherwise a local test bus is created.</p>
+
+  <div class="row">
+    <button id="btn-upload">Upload (CSV/XLSX)</button>
+    <button id="btn-export-csv">Export CSV</button>
+    <button id="btn-export-xlsx">Export XLSX</button>
+    <a href="./sample.csv" download>Download sample.csv</a>
+  </div>
+
+  <pre id="log"></pre>
+
+  <script type="module">
+    // Fallback test bus if no global bus exists
+    const fallbackBus = (() => {
+      const map = new Map();
+      return {
+        on(topic, h){ if(!map.has(topic)) map.set(topic, new Set()); map.get(topic).add(h); return () => map.get(topic)?.delete(h); },
+        emit(topic, payload){ const set=map.get(topic); if(!set) return 0; for (const fn of Array.from(set)) { try{ fn(payload); }catch(e){ console.error(e);} } return set?.size||0; },
+        clear(){ map.clear(); }
+      };
+    })();
+    const bus = window.bus || fallbackBus;
+
+    // Simple logger
+    const logEl = document.getElementById('log');
+    function log(topic, payload){
+      const line = `[${new Date().toISOString()}] ${topic} ${JSON.stringify(payload)}`;
+      logEl.textContent += (logEl.textContent ? "\n" : "") + line;
+      logEl.scrollTop = logEl.scrollHeight;
+      console.log(line);
+    }
+
+    // Wire module
+    import { registerImportExport } from '../../modules/import-export/index.js';
+    registerImportExport({
+      bus,
+      getRows: () => window.TEST_ROWS || []
+    });
+
+    // Listen to reports
+    bus.on("data.import.started", (p)=>log("data.import.started", p));
+    bus.on("data.import.report",  (p)=>log("data.import.report", p));
+    bus.on("data.export.done",    (p)=>log("data.export.done", p));
+    bus.on("data.export.error",   (p)=>log("data.export.error", p));
+
+    // Sample in-memory rows for export buttons
+    window.TEST_ROWS = [
+      { id:"OPP-000001", name:"Migration CRM", salesStep:"Discovery", client:"Maello", owner:"Marc", companyId:"C001", contactId:"CT001", notes:"Kickoff", nextAction:"Call", nextActionDate:"2025-10-15", closingDate:"2025-12-01", closingValue:12000 },
+      { id:"OPP-000002", name:"Support Pack",  salesStep:"Qualified", client:"Acme",   owner:"Sam",  companyId:"C002", contactId:"CT002", notes:"--",     nextAction:"Demo", nextActionDate:"2025-10-20", closingDate:"",          closingValue:4500 }
+    ];
+
+    // Buttons → emit UI intents
+    document.getElementById('btn-upload').addEventListener('click', ()=> bus.emit('ui.banner.upload', { ts: Date.now() }));
+    document.getElementById('btn-export-csv').addEventListener('click', ()=> bus.emit('ui.banner.export', { format:'csv', rows: window.TEST_ROWS }));
+    document.getElementById('btn-export-xlsx').addEventListener('click', ()=> bus.emit('ui.banner.export', { format:'xlsx', rows: window.TEST_ROWS }));
+  </script>
+</body>
+</html>
