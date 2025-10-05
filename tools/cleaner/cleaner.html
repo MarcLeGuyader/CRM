@@ -1,0 +1,58 @@
+
+    <!doctype html>
+    <html lang="en">
+    <head>
+      <meta charset="utf-8"/>
+      <meta name="viewport" content="width=device-width,initial-scale=1"/>
+      <title>Repo Cleaner Tool</title>
+      <style>
+        body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,sans-serif;background:#f7fafc;color:#1e293b;margin:0;padding:16px;}
+        .card{max-width:960px;margin:auto;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;}
+        h1{color:#1e6091;margin-top:0;}
+        textarea,input,button{font-family:inherit;font-size:14px;}
+        input,textarea{width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:8px;margin-top:4px;}
+        textarea{height:160px;white-space:pre;}
+        button{border:1px solid #cbd5e1;border-radius:8px;background:#fff;padding:8px 12px;cursor:pointer;}
+        button.primary{background:#1e6091;color:#fff;border-color:#1e6091;}
+        button:disabled{opacity:.6;cursor:not-allowed;}
+        .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+        .btns{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:12px 0;}
+        pre{background:#f1f5f9;border-radius:8px;padding:8px;white-space:pre-wrap;font-size:12px;max-height:220px;overflow:auto;}
+        .mini{font-size:12px;color:#64748b;}
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <h1>Repo Cleaner Tool</h1>
+        <p class="mini">Client-side cleanup for GitHub repos. Requires a fine-grained token with <code>contents:read/write</code>.</p>
+
+        <div class="grid2">
+          <label>Owner <input id="gh-owner" type="text" placeholder="MarcLeGuyader"></label>
+          <label>Repository <input id="gh-repo" type="text" placeholder="CRM"></label>
+          <label>Branch <input id="gh-branch" type="text" placeholder="main" value="main"></label>
+          <label>Token (PAT) <input id="gh-token" type="password" placeholder="github_pat_..."></label>
+        </div>
+
+        <p class="mini">Keep list (one per line)</p>
+        <textarea id="keep-list">assets/
+spec/
+tools/
+.github/
+README.md
+LICENSE
+</textarea>
+
+        <div class="btns">
+          <button id="btn-analyze">Analyze (Dry-run)</button>
+          <button id="btn-clean" class="primary" disabled>Cleanup (Apply)</button>
+          <button id="btn-download">Download Report</button>
+          <span id="status" class="mini">Ready.</span>
+        </div>
+
+        <progress id="prog" max="100" value="0" style="width:100%;height:10px;"></progress>
+        <pre id="log"></pre>
+      </div>
+
+      <script type="module" src="./cleaner.js"></script>
+    </body>
+    </html>
