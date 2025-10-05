@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Data Orchestrator – Tests</title>
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif;margin:16px}
+    .row{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+    button{padding:8px 12px;border:1px solid #ccd;border-radius:8px;background:#fff;cursor:pointer}
+    pre{background:#0b1020;color:#e6edf3;padding:10px;border-radius:8px;max-height:40vh;overflow:auto}
+    textarea{width:100%;height:160px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  </style>
+</head>
+<body>
+  <h1>Data Orchestrator – Manual Tests</h1>
+  <p>This page expects your existing event bus at <code>./modules/event-bus/bus.js</code>. If none is found, a tiny shim will be used so you can still play locally.</p>
+
+  <div class="row">
+    <button id="btn-load">Emit data.loaded (re-bootstrap)</button>
+    <button id="btn-create">Create valid Opportunity</button>
+    <button id="btn-create-bad">Create invalid Opportunity (no name)</button>
+    <button id="btn-reset">Reset (ui.banner.reset)</button>
+    <button id="btn-persist">Persist (ui.banner.save)</button>
+    <button id="btn-snapshot">Request snapshot (ui.banner.export)</button>
+  </div>
+
+  <h3>Last payload</h3>
+  <textarea id="payload" placeholder="payload will appear here"></textarea>
+
+  <h3>Event Log</h3>
+  <pre id="log"></pre>
+
+  <script>
+    // Try to load your real bus; if it fails, install a minimal shim for testing.
+    (function ensureBus(){
+      function installShim(){
+        const map = new Map();
+        window.bus = {
+          on(topic, handler){
+            if (!map.has(topic)) map.set(topic, new Set());
+            map.get(topic).add(handler);
+            return () => { map.get(topic)?.delete(handler); };
+          },
+          emit(topic, payload){
+            const set = map.get(topic);
+            if (!set) return 0;
+            for (const fn of Array.from(set)) try{ fn(payload); } catch(e){ console.error(e); }
+            return set.size;
+          },
+          count(topic){ const s = map.get(topic); return s? s.size:0; },
+          clear(){ map.clear(); }
+        };
+        console.log('[tests] installed local bus shim');
+      }
+      try {
+        const path = '../../modules/event-bus/bus.js';
+        import(path).then(() => {
+          if (!window.bus) installShim();
+          console.log('[tests] bus detected:', !!window.bus);
+        }).catch(() => {
+          installShim();
+        });
+      } catch {
+        installShim();
+      }
+    })();
+  </script>
+
+  <!-- Load orchestrator AFTER bus is ready -->
+  <script type="module">
+    import '../../modules/data-orchestrator/data-orchestrator.js';
+    const logEl = document.getElementById('log');
+    const payloadEl = document.getElementById('payload');
+    const log = (...a)=>{ const line=a.map(x=>typeof x==='object'?JSON.stringify(x):String(x)).join(' '); logEl.textContent += (logEl.textContent?'\n':'') + line; logEl.scrollTop=logEl.scrollHeight; };
+
+    // Subscribe to key events
+    window.bus.on('data.loaded',      p => { payloadEl.value = JSON.stringify(p,null,2); log(`[${new Date().toISOString()}] data.loaded`); });
+    window.bus.on('opps.validate.result', p => { payloadEl.value = JSON.stringify(p,null,2); log(`[${new Date().toISOString()}] opps.validate.result ok=${p?.ok}`); });
+    window.bus.on('opps.save.result', p => { payloadEl.value = JSON.stringify(p,null,2); log(`[${new Date().toISOString()}] opps.save.result ok=${p?.ok} id=${p?.id||''}`); });
+    window.bus.on('opps.updated',     p => { payloadEl.value = JSON.stringify(p,null,2); log(`[${new Date().toISOString()}] opps.updated id=${p?.id||''}`); });
+    window.bus.on('data.snapshot',    p => { payloadEl.value = JSON.stringify(p,null,2); log(`[${new Date().toISOString()}] data.snapshot`); });
+
+    // Buttons
+    document.getElementById('btn-load').addEventListener('click', () => {
+      if (window.DATA?.orchestrator?.bootstrap) window.DATA.orchestrator.bootstrap();
+    });
+    document.getElementById('btn-create').addEventListener('click', () => {
+      const draft = {
+        name: 'New Deal ' + Math.floor(Math.random()*1000),
+        salesStep: 'Discovery',
+        client: 'Maello',
+        owner: 'Marc',
+        companyId: 'C001',
+        contactId: 'CT001',
+        closingValue: 1000,
+        nextAction: 'Email',
+        nextActionDate: '2025-10-12'
+      };
+      window.bus.emit('opps.save.request', { draft });
+    });
+    document.getElementById('btn-create-bad').addEventListener('click', () => {
+      const draft = {
+        name: '',                 // invalid
+        salesStep: 'Unknown',     // invalid
+        client: 'X',
+        owner: 'Y',
+        companyId: 'C999'         // invalid
+      };
+      window.bus.emit('opps.save.request', { draft });
+    });
+    document.getElementById('btn-reset').addEventListener('click', () => {
+      window.bus.emit('ui.banner.reset', { ts: Date.now() });
+    });
+    document.getElementById('btn-persist').addEventListener('click', () => {
+      window.bus.emit('ui.banner.save', { ts: Date.now() });
+    });
+    document.getElementById('btn-snapshot').addEventListener('click', () => {
+      window.bus.emit('ui.banner.export', { ts: Date.now() });
+    });
+  </script>
+</body>
+</html>
