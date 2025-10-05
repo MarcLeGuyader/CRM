@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Event Bus Check</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      background: #f2f2f2;
+      text-align: center;
+      margin-top: 10%;
+    }
+    .box {
+      display: inline-block;
+      padding: 2rem 3rem;
+      border-radius: 10px;
+      font-size: 1.2rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+    .ok {
+      background: #d4edda;
+      color: #155724;
+    }
+    .fail {
+      background: #f8d7da;
+      color: #721c24;
+    }
+    button {
+      margin-top: 2rem;
+      font-size: 1rem;
+      padding: 0.5rem 1rem;
+    }
+  </style>
+</head>
+<body>
+  <div id="result" class="box">Checking Event Bus...</div>
+  <br />
+  <button onclick="runCheck()">Re-run Check</button>
+
+  <script type="module">
+    import { bus } from '../modules/event-bus.js';
+
+    window.runCheck = function runCheck() {
+      const box = document.getElementById('result');
+      if (window.bus || bus) {
+        box.textContent = '✅ Event Bus detected and ready';
+        box.className = 'box ok';
+      } else {
+        box.textContent = '❌ Event Bus NOT found';
+        box.className = 'box fail';
+      }
+    };
+
+    runCheck();
+  </script>
+</body>
+</html>
