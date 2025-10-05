@@ -1,1 +1,0 @@
-// ui/render-table.js (logic in app.js)
