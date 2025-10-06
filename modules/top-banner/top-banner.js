@@ -1,10 +1,15 @@
 // modules/top-banner/top-banner.js
 // Top Banner module — renders header UI and emits ui.banner.* events via the shared event bus
+// Depends on: ./top-banner.css (local style)
+
+import './top-banner.css'; // ✅ local stylesheet for layout and colors
+
 export function mount(container, bus) {
   if (!container) throw new Error("mount(container, ...) requires a container element");
-  if (!bus || typeof bus.emit !== "function") throw new Error("mount(...) requires a bus with emit(topic, payload)");
+  if (!bus || typeof bus.emit !== "function")
+    throw new Error("mount(...) requires a bus with emit(topic, payload)");
 
-  // Resolve the logo path RELATIVE to this file (not index.html):
+  // Resolve the logo path RELATIVE to this module file (not index.html)
   const logoSrc = new URL('./maello-logo.png', import.meta.url).href;
   const title = "CRM maello";
 
@@ -25,17 +30,15 @@ export function mount(container, bus) {
       <button id="btnExport" class="btn" aria-label="Export Excel/CSV">Export Excel CRM</button>
       <button id="btnSave" class="btn success" aria-label="Save">Save</button>
     </div>
+    <p class="logo-path">Logo path: <code>${logoSrc}</code></p>
   `;
+
   container.appendChild(root);
-
-  // Simple debug for the logo
-
-  root.insertAdjacentHTML('beforeend', `<p style="font-size:12px;color:#666;margin:4px 0 0 12px;">Logo path: <code>${logoSrc}</code></p>`);
 
   // Emit helper with timestamp
   const emit = (topic) => bus.emit(topic, { ts: Date.now() });
 
-  // Wire events
+  // Wire up button click events
   root.querySelector("#btnFilter")?.addEventListener("click", () => emit("ui.banner.filter"));
   root.querySelector("#btnNew")?.addEventListener("click", () => emit("ui.banner.new"));
   root.querySelector("#btnDebug")?.addEventListener("click", () => emit("ui.banner.debug"));
@@ -44,5 +47,9 @@ export function mount(container, bus) {
   root.querySelector("#btnExport")?.addEventListener("click", () => emit("ui.banner.export"));
   root.querySelector("#btnSave")?.addEventListener("click", () => emit("ui.banner.save"));
 
-  return { destroy() { root.remove(); } };
+  return {
+    destroy() {
+      root.remove();
+    }
+  };
 }
