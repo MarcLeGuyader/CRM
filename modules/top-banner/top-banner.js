@@ -6,7 +6,7 @@ export function mount(container, bus) {
 
   // Resolve the logo path RELATIVE to this file (not index.html):
   const logoSrc = new URL('./maello-logo.png', import.meta.url).href;
-  const title = "CRM";
+  const title = "CRM maello";
 
   // Create DOM
   const root = document.createElement("header");
