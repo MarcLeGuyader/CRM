@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Validation Rules – Tests</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Arial, sans-serif; margin: 16px; }
+    .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:8px; }
+    button { padding:8px 12px; border:1px solid #d0d7de; border-radius:8px; background:#fff; cursor:pointer; }
+    pre { background:#0b1020; color:#e6edf3; padding:12px; border-radius:8px; max-height:50vh; overflow:auto; }
+    .ok { color:#2f9e44; } .warn { color:#c92a2a; }
+    .pill { display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px; border:1px solid #d0d7de; }
+  </style>
+</head>
+<body>
+  <h1>Validation Rules – Test Harness</h1>
+  <div class="row">
+    <span class="pill" id="bus-badge">bus: unknown</span>
+    <button id="btn-check-bus">Check bus</button>
+    <button id="btn-register">Register on bus</button>
+    <button id="btn-run-tests">Run unit tests</button>
+    <button id="btn-emit">Emit sample opps.validate.request</button>
+    <button id="btn-clear">Clear</button>
+  </div>
+  <pre id="out"></pre>
+
+  <script>
+  // Minimal fallback bus for tests if window.bus is missing
+  (function(){
+    if (window.bus) return;
+    const map = new Map();
+    window.bus = {
+      on(topic, fn){ let s = map.get(topic); if(!s){ s = new Set(); map.set(topic, s); } s.add(fn); return () => { s.delete(fn); if(!s.size) map.delete(topic); }; },
+      emit(topic, payload){ const s = map.get(topic); if(!s) return 0; [...s].forEach(fn => { try{ fn(payload); }catch(e){ console.error(e); } }); return s.size; },
+      count(topic){ if(!topic){ let c=0; map.forEach(s=> c+=s.size); return c; } const s = map.get(topic); return s ? s.size : 0; },
+      clear(topic){ if(!topic){ map.clear(); return; } map.delete(topic); }
+    };
+    console.log("[test] Installed fallback bus");
+  })();
+  </script>
+
+  <script type="module">
+    import { registerWithBus, validateOpportunity, allowedSalesSteps } from "../../modules/validation-rules/validation-rules.js";
+
+    const out = document.getElementById('out');
+    const log = (...a) => { out.textContent += (out.textContent? "\n":"") + a.map(x=> typeof x==="object"? JSON.stringify(x) : String(x)).join(" "); out.scrollTop = out.scrollHeight; };
+
+    document.getElementById('btn-check-bus').addEventListener('click', () => {
+      const ok = !!(window.bus && typeof window.bus.on === "function" && typeof window.bus.emit === "function");
+      document.getElementById('bus-badge').textContent = "bus: " + (ok? "OK":"MISSING");
+      document.getElementById('bus-badge').className = "pill " + (ok? "ok":"warn");
+      log("[check-bus]", ok ? "OK" : "NO BUS");
+    });
+
+    let off = null;
+    document.getElementById('btn-register').addEventListener('click', () => {
+      if (off) { off(); off = null; log("[register] re-registered"); }
+      off = registerWithBus(window.bus);
+      log("[register] listeners:", window.bus.count());
+      window.bus.on("opps.validate.result", (res) => {
+        log("[event] opps.validate.result", res);
+      });
+    });
+
+    document.getElementById('btn-run-tests').addEventListener('click', () => {
+      const cases = [
+        { name:"valid minimal",
+          draft:{ name:"Deal A", client:"ACME", owner:"Marc", salesStep:allowedSalesSteps[0], closingValue:0 }
+        },
+        { name:"missing name",
+          draft:{ client:"ACME", owner:"Marc", salesStep:"Discovery" }
+        },
+        { name:"won without closingDate",
+          draft:{ name:"Won deal", client:"ACME", owner:"Marc", salesStep:"Won" }
+        },
+        { name:"next after closing",
+          draft:{ name:"Bad dates", client:"ACME", owner:"Marc", salesStep:"Qualified", nextActionDate:"2025-12-31", closingDate:"2025-01-01" }
+        },
+      ];
+      for (const c of cases) {
+        const errs = validateOpportunity(c.draft);
+        log("[unit]", c.name, errs.length ? "ERRORS" : "OK", errs);
+      }
+    });
+
+    document.getElementById('btn-emit').addEventListener('click', () => {
+      window.bus.emit("opps.validate.request", {
+        draft: { id:"OPP-000123", name:"Emit test", client:"Globex", owner:"Sam", salesStep:"Negotiation", closingValue:22000, closingDate:"2025-07-01" }
+      });
+    });
+
+    document.getElementById('btn-clear').addEventListener('click', () => { out.textContent = ""; });
+  </script>
+</body>
+</html>
