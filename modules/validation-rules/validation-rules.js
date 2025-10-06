@@ -1,153 +1,156 @@
 // modules/validation-rules/validation-rules.js
-// CRM Validation Rules module (framework-agnostic, ES module)
-/*
-  Exports:
-    - allowedSalesSteps: string[]
-    - validateOpportunity(draft): FieldError[]
-    - validateCompany(company): FieldError[]
-    - validateContact(contact): FieldError[]
-    - registerWithBus(bus?): void   // listens to 'opps.validate.request' and emits 'opps.validate.result'
-  Types:
-    FieldError = { field: string, code: string, message: string }
-*/
+// CRM Validation Rules (ES module, sans valeurs par défaut pour les sales steps)
 
-export const allowedSalesSteps = [
-  "Discovery","Qualified","Solution selling","Negotiation","Closing","Won","Lost"
-];
+let _allowedSalesSteps = []; // rempli par setAllowedSalesSteps() après import Excel
 
-const ID_RE = /^OPP-\d{6}$/;
-const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-
-export function isIsoDate(s) {
-  if (typeof s !== "string" || !ISO_DATE_RE.test(s)) return false;
-  const d = new Date(s + "T00:00:00Z");
-  return !isNaN(d.getTime()) && d.toISOString().startsWith(s);
+export function setAllowedSalesSteps(steps){
+  _allowedSalesSteps = Array.isArray(steps) ? steps.filter(Boolean) : [];
+}
+export function getAllowedSalesSteps(){
+  // Pas de défaut : retourne exactement ce qui a été injecté (éventuellement [])
+  return _allowedSalesSteps.slice();
 }
 
-export function asNumber(n) {
+// IDs canoniques
+const OPP_ID_RE  = /^OPP-\d{6}$/;
+const CMPY_ID_RE = /^CMPY-\d{6}$/;
+const CON_ID_RE  = /^CON-\d{6}$/;
+
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+export function isIsoDate(s){
+  if (typeof s !== "string" || !ISO_DATE_RE.test(s)) return false;
+  const d = new Date(s + "T00:00:00Z");
+  return Number.isFinite(d.getTime()) && d.toISOString().startsWith(s);
+}
+export function asNumber(n){
   if (n === null || n === undefined || n === "") return null;
   const v = Number(n);
   return Number.isFinite(v) ? v : NaN;
 }
 
-export function validateOpportunity(draft) {
-  /** @type {Array<{field:string, code:string, message:string}>} */
+// ---- Opportunity ------------------------------------------------------------
+export function validateOpportunity(draft){
+  /** @type {{field:string,code:string,message:string}[]} */
   const errors = [];
-  const add = (field, code, message) => errors.push({ field, code, message });
+  const add = (f,c,m)=>errors.push({field:f,code:c,message:m});
 
-  // id (optional on create, but if provided must be valid)
-  if (draft.id != null && String(draft.id).trim() !== "") {
-    if (!ID_RE.test(String(draft.id))) add("id","format","ID must match OPP-######");
+  // id (optionnel à la création)
+  if (draft.id != null && String(draft.id).trim() !== "" && !OPP_ID_RE.test(String(draft.id))){
+    add("id","format","ID must match OPP-######");
   }
 
-  // name
-  if (!draft.name || !String(draft.name).trim()) add("name","required","Name is required");
-
-  // client
+  // champs obligatoires
+  if (!draft.name || !String(draft.name).trim())   add("name","required","Name is required");
   if (!draft.client || !String(draft.client).trim()) add("client","required","Client is required");
-
-  // owner
   if (!draft.owner || !String(draft.owner).trim()) add("owner","required","Owner is required");
 
-  // salesStep
-  if (!draft.salesStep || !allowedSalesSteps.includes(String(draft.salesStep))) {
-    add("salesStep","invalid","Sales step must be one of: " + allowedSalesSteps.join(", "));
+  // salesStep — AUCUN défaut : doit provenir de SalesStepList
+  const allowed = getAllowedSalesSteps();
+  if (!allowed.length){
+    add("salesStep","steps_not_loaded","Sales steps list not loaded (import SalesStepList first)");
+  } else if (!draft.salesStep || !allowed.includes(String(draft.salesStep))){
+    add("salesStep","invalid","Sales step must be one of: " + allowed.join(", "));
   }
 
-  // numeric: closingValue >= 0
-  if (draft.closingValue !== undefined) {
+  // leadSource : optionnel → pas de contrainte
+  // closingValue ≥ 0 si fourni
+  if (draft.closingValue !== undefined && draft.closingValue !== ""){
     const v = asNumber(draft.closingValue);
     if (Number.isNaN(v)) add("closingValue","nan","Closing value must be a number");
-    else if (v < 0) add("closingValue","range","Closing value must be >= 0");
+    else if (v < 0)      add("closingValue","range","Closing value must be ≥ 0");
   }
 
   // dates
-  if (draft.nextActionDate != null && String(draft.nextActionDate).trim() !== "" && !isIsoDate(String(draft.nextActionDate))) {
+  if (draft.nextActionDate && !isIsoDate(String(draft.nextActionDate))){
     add("nextActionDate","date","Next action date must be ISO yyyy-mm-dd");
   }
-  if (draft.closingDate != null && String(draft.closingDate).trim() !== "" && !isIsoDate(String(draft.closingDate))) {
+  if (draft.closingDate && !isIsoDate(String(draft.closingDate))){
     add("closingDate","date","Closing date must be ISO yyyy-mm-dd");
   }
 
-  // step/date coherence
-  if (draft.salesStep === "Won") {
-    if (!draft.closingDate || !isIsoDate(String(draft.closingDate))) {
+  // cohérence étape/date
+  if (draft.salesStep === "Won"){
+    if (!draft.closingDate || !isIsoDate(String(draft.closingDate))){
       add("closingDate","required_when_won","Closing date is required when stage is Won");
     }
   }
 
-  // timeline coherence
-  if (draft.nextActionDate && draft.closingDate && isIsoDate(String(draft.nextActionDate)) && isIsoDate(String(draft.closingDate))) {
-    const na = new Date(draft.nextActionDate + "T00:00:00Z").getTime();
-    const cd = new Date(draft.closingDate + "T00:00:00Z").getTime();
+  // ordre temporel
+  if (draft.nextActionDate && draft.closingDate && isIsoDate(String(draft.nextActionDate)) && isIsoDate(String(draft.closingDate))){
+    const na = new Date(draft.nextActionDate+"T00:00:00Z").getTime();
+    const cd = new Date(draft.closingDate+"T00:00:00Z").getTime();
     if (na > cd) add("nextActionDate","afterClosing","Next action date must not be after closing date");
   }
 
-  // references presence (existence of IDs checked elsewhere by Orchestrator)
-  if (draft.companyId != null && String(draft.companyId).trim() === "") {
-    add("companyId","empty","If provided, companyId cannot be empty");
+  // formats d’ID (l’existence est vérifiée côté Orchestrator)
+  if (draft.companyId){
+    if (!CMPY_ID_RE.test(String(draft.companyId))) add("companyId","format","CompanyID must match CMPY-######");
   }
-  if (draft.contactId != null && String(draft.contactId).trim() === "") {
-    add("contactId","empty","If provided, contactId cannot be empty");
+  if (draft.contactId){
+    if (!CON_ID_RE.test(String(draft.contactId))) add("contactId","format","ContactID must match CON-######");
   }
 
   return errors;
 }
 
-export function validateCompany(c) {
+// ---- Company ----------------------------------------------------------------
+export function validateCompany(c){
   const errors = [];
-  if (!c || !c.name || !String(c.name).trim()) {
-    errors.push({ field:"name", code:"required", message:"Company name is required" });
+  const add = (f,cod,m)=>errors.push({field:f,code:cod,message:m});
+
+  if (!c || !c.name || !String(c.name).trim()){
+    add("name","required","Company name is required");
   }
-  if (c.id != null && String(c.id).trim() === "") {
-    errors.push({ field:"id", code:"empty","message":"If provided, id cannot be empty"});
+  if (c?.id && !CMPY_ID_RE.test(String(c.id))){
+    add("id","format","CompanyID must match CMPY-######");
   }
   return errors;
 }
 
-export function validateContact(ct) {
+// ---- Contact ----------------------------------------------------------------
+export function validateContact(ct){
   const errors = [];
-  const hasNames = (ct && (ct.displayName || ct.firstName || ct.lastName)) ? true : false;
-  if (!hasNames) {
-    errors.push({ field:"displayName", code:"required", message:"Contact needs at least displayName or first/last name" });
-  }
-  if (ct && ct.email) {
+  const add = (f,cod,m)=>errors.push({field:f,code:cod,message:m});
+
+  const hasNames = !!(ct && (ct.displayName || ct.firstName || ct.lastName));
+  if (!hasNames) add("displayName","required","Contact needs at least displayName or first/last name");
+
+  if (ct?.email){
     const email = String(ct.email).trim();
-    if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
-      errors.push({ field:"email", code:"format", message:"Invalid email format" });
+    if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){
+      add("email","format","Invalid email format");
     }
   }
-  if (ct && ct.companyId != null && String(ct.companyId).trim() === "") {
-    errors.push({ field:"companyId", code:"empty", message:"If provided, companyId cannot be empty" });
+  if (ct?.id && !CON_ID_RE.test(String(ct.id))){
+    add("id","format","ContactID must match CON-######");
+  }
+  if (ct?.companyId && !CMPY_ID_RE.test(String(ct.companyId))){
+    add("companyId","format","CompanyID must match CMPY-######");
   }
   return errors;
 }
 
-/**
- * registerWithBus(bus?): wire 'opps.validate.request' → 'opps.validate.result'
- * - By default it tries window.bus
- */
-export function registerWithBus(optionalBus) {
-  // Prefer explicit bus, else window.bus
+// ---- Bus wiring -------------------------------------------------------------
+export function registerWithBus(optionalBus){
   const b = optionalBus || (typeof window !== "undefined" ? window.bus : null);
-  if (!b || typeof b.on !== "function" || typeof b.emit !== "function") {
+  if (!b || typeof b.on !== "function" || typeof b.emit !== "function"){
     console.warn("[validation-rules] No compatible bus found. Skipping registration.");
     return () => {};
   }
   const off = b.on("opps.validate.request", ({ draft }) => {
-    try {
+    try{
       const errors = validateOpportunity(draft || {});
       b.emit("opps.validate.result", { ok: errors.length === 0, errors });
-    } catch (e) {
+    }catch(e){
       console.error("[validation-rules] validate error", e);
-      b.emit("opps.validate.result", { ok:false, errors:[{ field:"*", code:"exception", message:String(e&&e.message||e)}] });
+      b.emit("opps.validate.result", { ok:false, errors:[{ field:"*", code:"exception", message:String(e?.message||e) }] });
     }
   });
-  console.log("[validation-rules] Registered on bus for 'opps.validate.request'");
   return off;
 }
 
-// Auto-register if window.autoRegisterValidationRules is true
-if (typeof window !== "undefined" && window.autoRegisterValidationRules) {
-  try { registerWithBus(); } catch {}
-}
+// Auto-register si souhaité (désactivé par défaut)
+// if (typeof window !== "undefined" && window.autoRegisterValidationRules) {
+//   try { registerWithBus(); } catch {}
+// }
