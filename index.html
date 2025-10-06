@@ -131,6 +131,31 @@
       debugApi.log('[error] opportunity-table: ' + (e?.message||e));
     }
 
+// === 6.5) Dialogs
+try {
+  const { mountDialogs } = await import('./modules/dialogs/dialogs.js');
+
+  // optional dynamic resolvers — pass-through orchestrator if available
+  const orchestrator = window.DATA?.orchestrator;
+
+  const deps = {
+    bus: window.bus,
+    resolveCompanyName: (id) => orchestrator?.resolveCompanyName?.(id) || '',
+    resolveContactName: (id) => orchestrator?.resolveContactName?.(id) || '',
+    listContactsByCompany: (id) => orchestrator?.listContactsByCompany?.(id) || [],
+    getOpportunityById: (id) => orchestrator?.getOpportunityById?.(id) || null,
+    getSalesSteps: () => orchestrator?.getState?.().salesSteps || [],
+    getCompanyById: (id) => orchestrator?.getCompanyById?.(id),
+    getContactById: (id) => orchestrator?.getContactById?.(id)
+  };
+
+  mountDialogs(deps);
+  debugApi.log('[mounted] dialogs');
+} catch (e) {
+  console.warn('[index] dialogs not mounted', e);
+  debugApi.log('[warn] dialogs: ' + (e?.message || e));
+}
+    
     // === 7) Import/Export (Excel support ensured)
     try {
       await ensureXLSX(); // <-- Make sure SheetJS is present on window.XLSX
