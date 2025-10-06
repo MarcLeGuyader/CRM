@@ -5,9 +5,8 @@ export function mount(container, bus) {
   if (!container) throw new Error("mount(container, ...) requires a container element");
   if (!bus || typeof bus.emit !== "function") throw new Error("mount(...) requires a bus with emit(topic, payload)");
 
-  // Simple local path — assumes logo is in the same folder as this JS file
   const logoSrc = "./maello-logo.png";
-  const title = "CRM maello";
+  const title = "CRM";
 
   // Create DOM
   const root = document.createElement("header");
