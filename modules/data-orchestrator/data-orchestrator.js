@@ -1,91 +1,118 @@
 // ./modules/data-orchestrator/data-orchestrator.js
-// Data Orchestrator (Module 07)
-// - Single source of truth in memory
-// - localStorage persistence (POC)
-// - Centralized validation
-// - ID generation OPP-######
-// - Name resolution helpers
-// Depends on a global Event Bus available at window.bus (your existing one).
+// Data Orchestrator (Module 07) — v4 strict formats
+// - Source de vérité en mémoire
+// - Persistance localStorage
+// - Validation centralisée
+// - Génération d'ID OPP-######
+// - Résolution des noms (Company/Contact)
+// - SalesStepList dynamique + Companies.IsClient → clientList
+// - IDs STRICTS:
+//     Company.ID     : CMPY-######
+//     Contact.ID     : CON-######
+//     Opportunity.ID : OPP-######
 
 (function(){
   const BUS = (typeof window !== 'undefined' && window.bus) ? window.bus : null;
-  if (!BUS) {
-    console.error('[data-orchestrator] Event bus not found on window.bus');
-    return;
-  }
+  if (!BUS) { console.error('[data-orchestrator] Event bus not found on window.bus'); return; }
 
+  // --- Storage (v4 pour ne pas mélanger avec anciens formats) ---
   const STORAGE = {
-    rows: 'crm_rows_v1',
-    companies: 'crm_companies_v1',
-    contacts: 'crm_contacts_v1'
+    rows:       'crm_rows_v4',
+    companies:  'crm_companies_v4',
+    contacts:   'crm_contacts_v4',
+    salesSteps: 'crm_sales_steps_v4',
+    clients:    'crm_clients_v4'
   };
 
-  const ALLOWED_STEPS = ['Discovery','Qualified','Solution selling','Negotiation','Closing','Won','Lost'];
+  // --- Regex strictes pour les IDs ---
+  const RX = {
+    opp:   /^OPP-\d{6}$/,
+    cmpy:  /^CMPY-\d{6}$/,
+    cont:  /^CON-\d{6}$/
+  };
 
-  /** @type {{ rows: any[], companies: Record<string,string>, contacts: Record<string, any> }} */
+  const DEFAULT_STEPS = ['Discovery','Qualified','Solution selling','Negotiation','Closing','Won','Lost'];
+
+  // --- État ---
   const state = {
-    rows: [],             // Array<Opportunity>
-    companies: {},        // Map name -> id (simple directory); display names resolved via compIndex
-    contacts: {},         // Map displayName -> id (optional helper)
-    compIndex: {},        // Map id -> { id, name }
-    contIndex: {}         // Map id -> { id, displayName, firstName, lastName, companyId, email, phone }
+    rows: [],                 // Array<Opportunity>
+    compIndex: {},            // CMPY-xxxxxx -> { id, name, isClient? }
+    contIndex: {},            // CON-xxxxxx  -> { id, displayName, firstName, lastName, companyId, email, phone }
+    companiesByName: {},      // name -> CMPY-xxxxxx
+    contactsByName: {},       // displayName -> CON-xxxxxx
+    salesSteps: [],
+    clientList: []            // [CMPY-xxxxxx,...]
   };
 
   // ---------- Utils ----------
-  function loadLS(key, fallback){
-    try{ const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; }catch{ return fallback; }
-  }
-  function saveLS(key, val){
-    try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){ console.warn('[data-orchestrator] persist error', key, e); }
-  }
-  function isIsoDate(s){
-    return typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s);
-  }
-  function cmpDate(a,b){
-    // return -1/0/1 for ISO yyyy-mm-dd
-    if (!isIsoDate(a) || !isIsoDate(b)) return 0;
-    if (a < b) return -1;
-    if (a > b) return 1;
-    return 0;
-  }
+  function loadLS(key, fallback){ try{ const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; }catch{ return fallback; } }
+  function saveLS(key, val){ try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){ console.warn('[data-orchestrator] persist error', key, e); } }
+  function isIsoDate(s){ return typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s); }
+  function cmpDate(a,b){ if (!isIsoDate(a) || !isIsoDate(b)) return 0; return a<b?-1:a>b?1:0; }
+
   function nextOppId(rows){
     let max = 0;
     for (const r of rows){
-      const m = /^OPP-(\d{6})$/.exec(r.id || r['Opportunity.ID'] || '');
-      if (m){ const n = parseInt(m[1],10); if (n > max) max = n; }
+      const id = r.id || r['Opportunity.ID'] || '';
+      if (RX.opp.test(id)){
+        const n = parseInt(id.slice(4), 10);
+        if (n > max) max = n;
+      }
     }
     return 'OPP-' + String(max+1).padStart(6,'0');
   }
 
+  function rebuildDerivedLookups(){
+    state.companiesByName = {};
+    for (const c of Object.values(state.compIndex)){ if (c?.name) state.companiesByName[c.name] = c.id; }
+    state.contactsByName = {};
+    for (const c of Object.values(state.contIndex)){ const dn = c?.displayName; if (dn) state.contactsByName[dn] = c.id; }
+    state.clientList = Object.values(state.compIndex).filter(c => !!c.isClient).map(c => c.id);
+  }
+
   function resolveCompanyName(companyId){
-    if (!companyId) return undefined;
-    const info = state.compIndex[String(companyId).trim()];
+    if (!companyId || !RX.cmpy.test(String(companyId))) return undefined;
+    const info = state.compIndex[String(companyId)];
     return info ? info.name : undefined;
   }
   function resolveContactName(contactId){
-    if (!contactId) return undefined;
-    const info = state.contIndex[String(contactId).trim()];
+    if (!contactId || !RX.cont.test(String(contactId))) return undefined;
+    const info = state.contIndex[String(contactId)];
     if (!info) return undefined;
     return info.displayName || [info.firstName||'', info.lastName||''].join(' ').trim() || undefined;
   }
 
   // ---------- Validation ----------
+  function currentAllowedSteps(){
+    return (Array.isArray(state.salesSteps) && state.salesSteps.length) ? state.salesSteps : DEFAULT_STEPS;
+  }
+
   function validateOpportunity(draft){
-    /** @type {{ field: string, code: string, message: string }[]} */
     const errors = [];
+
+    // ID formats stricts s’ils sont fournis
+    const id = (draft.id ?? draft['Opportunity.ID'] ?? '').toString().trim();
+    if (id && !RX.opp.test(id)) errors.push({ field:'id', code:'bad_format', message:'Opportunity.ID must match OPP-000001 (6 digits).' });
+
+    const companyId = (draft.companyId ?? draft['Opportunity.CompanyID'] ?? '').toString().trim();
+    if (companyId && !RX.cmpy.test(companyId)) errors.push({ field:'companyId', code:'bad_format', message:'Company.ID must match CMPY-000001 (6 digits).' });
+
+    const contactId = (draft.contactId ?? draft['Opportunity.ContactID'] ?? '').toString().trim();
+    if (contactId && !RX.cont.test(contactId)) errors.push({ field:'contactId', code:'bad_format', message:'Contact.ID must match CON-000001 (6 digits).' });
 
     const name = (draft.name ?? draft['Opportunity.Name'] ?? '').toString().trim();
     if (!name) errors.push({ field: 'name', code: 'required', message: 'Name is required.' });
 
     const salesStep = (draft.salesStep ?? draft['Opportunity.SalesStep'] ?? '').toString().trim();
-    if (!ALLOWED_STEPS.includes(salesStep)){
-      errors.push({ field: 'salesStep', code: 'invalid_step', message: `Sales step must be one of: ${ALLOWED_STEPS.join(', ')}` });
+    const stepList = currentAllowedSteps();
+    if (stepList.length && !stepList.includes(salesStep)){
+      errors.push({ field: 'salesStep', code: 'invalid_step', message: `Sales step must be one of: ${stepList.join(', ')}` });
     }
 
     const closingValueRaw = draft.closingValue ?? draft['Opportunity.ClosingValue'];
     if (closingValueRaw != null && closingValueRaw !== ''){
       const n = Number(closingValueRaw);
-      if (!Number.isFinite(n) || n < 0) errors.push({ field: 'closingValue', code: 'invalid_non_negative', message: 'Closing value must be a non‑negative number.' });
+      if (!Number.isFinite(n) || n < 0) errors.push({ field: 'closingValue', code: 'invalid_non_negative', message: 'Closing value must be a non-negative number.' });
     }
 
     const nextActionDate = draft.nextActionDate ?? draft['Opportunity.NextActionDate'];
@@ -105,15 +132,12 @@
       errors.push({ field: 'nextActionDate', code: 'after_closing', message: 'Next action date must be on/before closing date.' });
     }
 
-    const companyId = draft.companyId ?? draft['Opportunity.CompanyID'];
-    if (companyId){
-      if (!state.compIndex[String(companyId).trim()]){
-        errors.push({ field: 'companyId', code: 'unknown_company', message: 'Company ID does not exist.' });
-      }
+    // Référentiels existants ?
+    if (companyId && !state.compIndex[companyId]){
+      errors.push({ field: 'companyId', code: 'unknown_company', message: 'Company ID does not exist.' });
     }
-    const contactId = draft.contactId ?? draft['Opportunity.ContactID'];
     if (contactId){
-      const ci = state.contIndex[String(contactId).trim()];
+      const ci = state.contIndex[contactId];
       if (!ci){
         errors.push({ field: 'contactId', code: 'unknown_contact', message: 'Contact ID does not exist.' });
       } else if (companyId && ci.companyId && String(ci.companyId).trim() !== String(companyId).trim()){
@@ -125,6 +149,25 @@
   }
 
   // ---------- Save (create/update) ----------
+  function normalizeOpp(draft, id){
+    return {
+      id,
+      name: (draft.name ?? draft['Opportunity.Name'] ?? '').toString(),
+      salesStep: (draft.salesStep ?? draft['Opportunity.SalesStep'] ?? '').toString(),
+      client: (draft.client ?? draft['Opportunity.Client'] ?? '').toString(),
+      owner: (draft.owner ?? draft['Opportunity.Owner'] ?? '').toString(),
+      companyId: (draft.companyId ?? draft['Opportunity.CompanyID'] ?? '') || undefined,
+      contactId: (draft.contactId ?? draft['Opportunity.ContactID'] ?? '') || undefined,
+      notes: (draft.notes ?? draft['Opportunity.Notes'] ?? '') || '',
+      nextAction: (draft.nextAction ?? draft['Opportunity.NextAction'] ?? '') || '',
+      nextActionDate: (draft.nextActionDate ?? draft['Opportunity.NextActionDate'] ?? '') || '',
+      closingDate: (draft.closingDate ?? draft['Opportunity.ClosingDate'] ?? '') || '',
+      closingValue: draft.closingValue != null ? Number(draft.closingValue)
+                 : draft['Opportunity.ClosingValue'] != null ? Number(draft['Opportunity.ClosingValue'])
+                 : 0
+    };
+  }
+
   function saveOpportunity(draft){
     const errs = validateOpportunity(draft);
     if (errs.length){
@@ -150,55 +193,45 @@
     return { ok:true, id: row.id };
   }
 
-  function normalizeOpp(draft, id){
-    return {
-      id,
-      name: (draft.name ?? draft['Opportunity.Name'] ?? '').toString(),
-      salesStep: (draft.salesStep ?? draft['Opportunity.SalesStep'] ?? '').toString(),
-      client: (draft.client ?? draft['Opportunity.Client'] ?? '').toString(),
-      owner: (draft.owner ?? draft['Opportunity.Owner'] ?? '').toString(),
-      companyId: (draft.companyId ?? draft['Opportunity.CompanyID'] ?? '') || undefined,
-      contactId: (draft.contactId ?? draft['Opportunity.ContactID'] ?? '') || undefined,
-      notes: (draft.notes ?? draft['Opportunity.Notes'] ?? '') || '',
-      nextAction: (draft.nextAction ?? draft['Opportunity.NextAction'] ?? '') || '',
-      nextActionDate: (draft.nextActionDate ?? draft['Opportunity.NextActionDate'] ?? '') || '',
-      closingDate: (draft.closingDate ?? draft['Opportunity.ClosingDate'] ?? '') || '',
-      closingValue: draft.closingValue != null ? Number(draft.closingValue) :
-                    draft['Opportunity.ClosingValue'] != null ? Number(draft['Opportunity.ClosingValue']) : 0
-    };
-  }
-
   // ---------- Persistence ----------
   function persist(){
     saveLS(STORAGE.rows, state.rows);
-    // Persist indices as arrays
-    const companiesPersist = Object.values(state.compIndex);
-    const contactsPersist = Object.values(state.contIndex);
-    saveLS(STORAGE.companies, companiesPersist);
-    saveLS(STORAGE.contacts, contactsPersist);
+    saveLS(STORAGE.companies, Object.values(state.compIndex));
+    saveLS(STORAGE.contacts, Object.values(state.contIndex));
+    saveLS(STORAGE.salesSteps, state.salesSteps);
+    saveLS(STORAGE.clients, state.clientList);
   }
   function reset(){
-    localStorage.removeItem(STORAGE.rows);
-    localStorage.removeItem(STORAGE.companies);
-    localStorage.removeItem(STORAGE.contacts);
+    Object.values(STORAGE).forEach(k => localStorage.removeItem(k));
     state.rows = [];
-    state.companies = {};
-    state.contacts = {};
     state.compIndex = {};
     state.contIndex = {};
+    state.salesSteps = [];
+    state.clientList = [];
+    state.companiesByName = {};
+    state.contactsByName = {};
   }
 
   function getState(){
     return {
       rows: state.rows.slice(),
       companies: Object.values(state.compIndex),
-      contacts: Object.values(state.contIndex)
+      contacts: Object.values(state.contIndex),
+      salesSteps: state.salesSteps.slice(),
+      clientList: state.clientList.slice()
     };
   }
 
   // ---------- Import merge ----------
+  // payload attendu:
+  // {
+  //   ok: true,
+  //   rows: Opportunity[],
+  //   companies: Company[],   // { id:'CMPY-######', name, isClient? }
+  //   contacts: Contact[],    // { id:'CON-######', displayName, firstName, lastName, companyId:'CMPY-######', ... }
+  //   salesSteps: string[]
+  // }
   function mergeImport(payload){
-    // Expect payload like { ok:boolean, rows?:Opportunity[], companies?:Company[], contacts?:Contact[] }
     if (!payload || payload.ok !== true){
       console.warn('[data-orchestrator] import report not ok → ignore');
       return;
@@ -206,36 +239,57 @@
     const inRows = Array.isArray(payload.rows) ? payload.rows : [];
     const inCompanies = Array.isArray(payload.companies) ? payload.companies : [];
     const inContacts = Array.isArray(payload.contacts) ? payload.contacts : [];
+    const inSalesSteps = Array.isArray(payload.salesSteps) ? payload.salesSteps.filter(Boolean) : [];
 
-    // Merge companies
+    // Companies
     for (const c of inCompanies){
-      if (!c || !c.id) continue;
-      state.compIndex[c.id] = { id: c.id, name: c.name || c.displayName || String(c.id) };
+      if (!c || !c.id || !RX.cmpy.test(c.id)) { console.warn('[orchestrator] drop company with bad id', c?.id); continue; }
+      state.compIndex[c.id] = {
+        id: c.id,
+        name: c.name || c.displayName || String(c.id),
+        isClient: !!(c.isClient || c.IsClient || c['Companies.IsClient'])
+      };
     }
-    // Merge contacts
+
+    // Contacts
     for (const c of inContacts){
-      if (!c || !c.id) continue;
+      if (!c || !c.id || !RX.cont.test(c.id)) { console.warn('[orchestrator] drop contact with bad id', c?.id); continue; }
+      const companyId = c.companyId || '';
+      if (companyId && !RX.cmpy.test(companyId)) { console.warn('[orchestrator] drop contact with bad companyId', c?.id, companyId); continue; }
       state.contIndex[c.id] = {
         id: c.id,
         displayName: c.displayName || [c.firstName||'',c.lastName||''].join(' ').trim(),
         firstName: c.firstName || '',
         lastName: c.lastName || '',
-        companyId: c.companyId || '',
+        companyId: companyId || '',
         email: c.email || '',
         phone: c.phone || ''
       };
     }
-    // Merge rows (validate each)
+
+    // Sales steps (remplace la liste si fournie)
+    if (inSalesSteps.length) state.salesSteps = inSalesSteps.slice();
+
+    // Lookups + client list
+    rebuildDerivedLookups();
+
+    // Rows (opportunities) — valider chaque entrée
     let added = 0, updated = 0, invalid = 0;
     for (const r of inRows){
+      // hard pre-checks ID formats
+      if (r.id && !RX.opp.test(r.id)) { invalid++; continue; }
+      if (r.companyId && !RX.cmpy.test(r.companyId)) { invalid++; continue; }
+      if (r.contactId && !RX.cont.test(r.contactId)) { invalid++; continue; }
+
+      const before = state.rows.find(x => x.id === r.id);
       const res = saveOpportunity(r);
       if (res.ok){
-        const existed = state.rows.some(x => x.id === res.id);
-        if (existed) updated++; else added++;
+        if (before) updated++; else added++;
       } else {
         invalid++;
       }
     }
+
     persist();
     BUS.emit('opps.updated', { id: null, import: true, added, updated, invalid });
   }
@@ -262,52 +316,71 @@
   // ---------- Bootstrap ----------
   function bootstrap(forceDemo=false){
     // Load persisted
-    const rows = loadLS(STORAGE.rows, []);
-    const companies = loadLS(STORAGE.companies, []); // array [{id,name}]
-    const contacts = loadLS(STORAGE.contacts, []);   // array [{id,displayName,...}]
+    const rows       = loadLS(STORAGE.rows, []);
+    const companies  = loadLS(STORAGE.companies, []); // [{id,name,isClient}]
+    const contacts   = loadLS(STORAGE.contacts, []);  // [{id,displayName,...}]
+    const steps      = loadLS(STORAGE.salesSteps, []); // [string]
+    const clients    = loadLS(STORAGE.clients, []);   // [CMPY-xxxxxx]
 
     state.rows = Array.isArray(rows) ? rows : [];
 
     state.compIndex = {};
     (Array.isArray(companies) ? companies : []).forEach(c => {
-      if (c && c.id) state.compIndex[c.id] = { id: c.id, name: c.name || String(c.id) };
+      if (c && c.id && RX.cmpy.test(c.id)) {
+        state.compIndex[c.id] = {
+          id: c.id,
+          name: c.name || String(c.id),
+          isClient: !!c.isClient
+        };
+      }
     });
 
     state.contIndex = {};
     (Array.isArray(contacts) ? contacts : []).forEach(c => {
-      if (c && c.id)
+      if (c && c.id && RX.cont.test(c.id)){
+        const companyId = c.companyId || '';
         state.contIndex[c.id] = {
           id: c.id,
           displayName: c.displayName || [c.firstName||'',c.lastName||''].join(' ').trim(),
           firstName: c.firstName || '',
           lastName: c.lastName || '',
-          companyId: c.companyId || '',
+          companyId: companyId,
           email: c.email || '',
           phone: c.phone || ''
         };
+      }
     });
 
+    state.salesSteps = Array.isArray(steps) && steps.length ? steps.slice() : [];
+    state.clientList = Array.isArray(clients) && clients.length ? clients.slice()
+                      : Object.values(state.compIndex).filter(c => !!c.isClient).map(c => c.id);
+
+    rebuildDerivedLookups();
+
     if ((state.rows.length === 0 || forceDemo) && Object.keys(state.compIndex).length === 0){
-      // Demo seed
+      // Demo seed alignée sur CMPY/CON/OPP
       state.compIndex = {
-        C001: { id:'C001', name:'Maello' },
-        C002: { id:'C002', name:'Globex' }
+        'CMPY-000001': { id:'CMPY-000001', name:'Maello',  isClient:true },
+        'CMPY-000002': { id:'CMPY-000002', name:'Globex',  isClient:true },
+        'CMPY-000003': { id:'CMPY-000003', name:'Initech', isClient:false }
       };
       state.contIndex = {
-        CT001: { id:'CT001', displayName:'Marc Le Guyader', firstName:'Marc', lastName:'Le Guyader', companyId:'C001' },
-        CT002: { id:'CT002', displayName:'John Doe', firstName:'John', lastName:'Doe', companyId:'C002' }
+        'CON-000001': { id:'CON-000001', displayName:'Marc Le Guyader', firstName:'Marc', lastName:'Le Guyader', companyId:'CMPY-000001' },
+        'CON-000002': { id:'CON-000002', displayName:'John Doe',        firstName:'John', lastName:'Doe',        companyId:'CMPY-000002' }
       };
+      state.salesSteps = DEFAULT_STEPS.slice();
       state.rows = [
-        { id:'OPP-000001', name:'Migration CRM', salesStep:'Discovery', client:'Maello', owner:'Marc', companyId:'C001', contactId:'CT001', closingValue:12000, nextAction:'Call', nextActionDate:'2025-10-10', closingDate:'' },
-        { id:'OPP-000002', name:'Integration', salesStep:'Qualified', client:'Globex', owner:'Sven', companyId:'C002', contactId:'CT002', closingValue:22000, nextAction:'POC', nextActionDate:'2025-10-15', closingDate:'' }
+        { id:'OPP-000001', name:'Migration CRM', salesStep:'Discovery', client:'Maello', owner:'Marc',  companyId:'CMPY-000001', contactId:'CON-000001', closingValue:12000, nextAction:'Call', nextActionDate:'2025-10-10', closingDate:'' },
+        { id:'OPP-000002', name:'Integration',   salesStep:'Qualified', client:'Globex', owner:'Sven',  companyId:'CMPY-000002', contactId:'CON-000002', closingValue:22000, nextAction:'POC',  nextActionDate:'2025-10-15', closingDate:'' }
       ];
+      rebuildDerivedLookups();
       persist();
     }
 
     BUS.emit('data.loaded', getState());
   }
 
-  // Expose minimal API (optional, for tests)
+  // Expose minimal API
   window.DATA = window.DATA || {};
   window.DATA.orchestrator = {
     getState,
