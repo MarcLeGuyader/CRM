@@ -1,8 +1,17 @@
 // modules/dialogs/dialogs.js
 // Stackable dialogs: Opportunity / Company / Contact
 // Depends on an external Event Bus providing { on, emit }.
-// Public API: mountDialogs({ bus, resolveCompanyName, resolveContactName, listContactsByCompany, getOpportunityById })
-
+// Public API: mountDialogs({ 
+//   bus, 
+//   resolveCompanyName, 
+//   resolveContactName, 
+//   listContactsByCompany, 
+//   getOpportunityById,
+//   // --- optionnels / recommandés pour profiter des nouveaux champs ---
+//   getSalesSteps,          // ()=>string[]   (sinon lit orchestrator.getState().salesSteps)
+//   getCompanyById,         // (companyId)=>{ id,name,isClient,... } | undefined
+//   getContactById          // (contactId)=>{ id,displayName,firstName,... } | undefined
+// })
 /**
  * @typedef {Object} Opportunity
  * @property {string} id
@@ -17,8 +26,8 @@
  * @property {string=} nextActionDate
  * @property {string=} closingDate
  * @property {number=} closingValue
+ * @property {string=} leadSource
  */
-
 /** @typedef {Partial<Opportunity> & { id?: string }} OpportunityDraft */
 
 export function mountDialogs(deps) {
@@ -27,7 +36,11 @@ export function mountDialogs(deps) {
     resolveCompanyName,
     resolveContactName,
     listContactsByCompany,
-    getOpportunityById
+    getOpportunityById,
+    // nouveaux (facultatifs)
+    getSalesSteps,
+    getCompanyById,
+    getContactById
   } = deps || {};
 
   if (!bus || typeof bus.on !== 'function' || typeof bus.emit !== 'function') {
@@ -58,11 +71,11 @@ export function mountDialogs(deps) {
     if (!res || res.requestId !== top.requestId) return;
     const dlg = top.dialog;
     const box = dlg.querySelector('.crm-errors');
-    box.textContent = '';
+    clearErrors(box);
     if (!res.ok) {
       // show errors
       if (Array.isArray(res.errors) && res.errors.length) {
-        box.textContent = res.errors.map(e => `${e.field}: ${e.message}`).join('\n');
+        showErrors(box, res.errors);
       } else {
         box.textContent = 'Validation failed (unknown error).';
       }
@@ -82,7 +95,7 @@ export function mountDialogs(deps) {
     if (!res || res.requestId !== top.requestId) return;
     const dlg = top.dialog;
     const box = dlg.querySelector('.crm-errors');
-    box.textContent = '';
+    clearErrors(box);
     setButtonsDisabled(dlg, false);
     if (!res.ok) {
       box.textContent = (res.errors && res.errors.join('\n')) || 'Save failed.';
@@ -130,6 +143,12 @@ export function mountDialogs(deps) {
     dlg.querySelectorAll('button').forEach(b => { if (b.dataset.role) b.disabled = disabled; });
   }
 
+  function clearErrors(pre){ if (pre) pre.textContent = ''; }
+  function showErrors(pre, errors){
+    if (!pre) return;
+    pre.textContent = errors.map(e => `${e.field}: ${e.message}`).join('\n');
+  }
+
   function collectDraftFromForm(dlg) {
     /** @type {OpportunityDraft} */
     const d = {};
@@ -147,6 +166,8 @@ export function mountDialogs(deps) {
     d.closingDate = get('input[name="closingDate"]') || undefined;
     const cv = get('input[name="closingValue"]');
     d.closingValue = cv ? Number(cv) : undefined;
+    // NEW: leadSource
+    d.leadSource = get('input[name="leadSource"]') || undefined;
     return d;
   }
 
@@ -156,7 +177,7 @@ export function mountDialogs(deps) {
       if (k === 'class') e.className = v;
       else if (k === 'text') e.textContent = v;
       else if (k.startsWith('on') && typeof v === 'function') e.addEventListener(k.slice(2), v);
-      else e.setAttribute(k, v);
+      else if (v !== undefined && v !== null) e.setAttribute(k, v);
     });
     children.forEach(c => e.appendChild(c));
     return e;
@@ -164,6 +185,19 @@ export function mountDialogs(deps) {
 
   function link(text, onclick) {
     return el('span', { class: 'crm-link', role: 'button', onClick: onclick, tabIndex: 0 }, [document.createTextNode(text)]);
+  }
+
+  function resolveSteps() {
+    // priorité aux deps
+    if (typeof getSalesSteps === 'function') {
+      const arr = getSalesSteps() || [];
+      return Array.isArray(arr) ? arr : [];
+    }
+    // fallback orchestrator global
+    const steps = (window.DATA && window.DATA.orchestrator && window.DATA.orchestrator.getState)
+      ? (window.DATA.orchestrator.getState().salesSteps || [])
+      : [];
+    return Array.isArray(steps) ? steps : [];
   }
 
   function renderOpportunityDialog(id) {
@@ -182,14 +216,16 @@ export function mountDialogs(deps) {
     const grid = el('div', { class: 'grid2' }, [
       wrap('ID', el('input', { name: 'id', value: row?.id || '', readOnly: true })),
       wrap('Name', el('input', { name: 'name', value: row?.name || '' })),
-      wrap('Sales step', selectStep(row?.salesStep || 'Discovery')),
+      // Sales steps dynamiques (pas de défaut si vide)
+      wrap('Sales step', selectStep(row?.salesStep || '')),
+      wrap('Lead source', el('input', { name: 'leadSource', value: row?.leadSource || '' })),       // NEW
       wrap('Client', el('input', { name: 'client', value: row?.client || '' })),
       wrap('Owner', el('input', { name: 'owner', value: row?.owner || '' })),
       wrap('Company ID', el('input', { name: 'companyId', value: row?.companyId || '' })),
       wrap('Company Name', el('div', {}, [ link(companyName, () => open('company', { companyId: (row?.companyId||'').trim() })) ])),
       wrap('Contact ID', el('input', { name: 'contactId', value: row?.contactId || '' })),
       wrap('Contact Name', el('div', {}, [ link(contactName, () => open('contact', { contactId: (row?.contactId||'').trim() })) ])),
-      wrap('Notes', el('textarea', { name: 'notes' }, [])),
+      wrap('Notes', el('textarea', { name: 'notes' }, [document.createTextNode(row?.notes || '')])),
       wrap('Next actions', el('input', { name: 'nextAction', value: row?.nextAction || '' })),
       wrap('Next action date', el('input', { name: 'nextActionDate', type: 'date', value: row?.nextActionDate || '' })),
       wrap('Closing date', el('input', { name: 'closingDate', type: 'date', value: row?.closingDate || '' })),
@@ -224,8 +260,12 @@ export function mountDialogs(deps) {
   }
 
   function selectStep(current) {
-    const steps = ['Discovery','Qualified','Solution selling','Negotiation','Closing','Won','Lost'];
+    const steps = resolveSteps(); // dynamique depuis Excel (peut être vide)
     const sel = el('select', { name: 'salesStep' });
+    // Option vide si aucune liste ou si non renseigné
+    const placeholder = el('option', { value: '', text: steps.length ? '(choose...)' : '(no steps loaded)' });
+    if (!current) placeholder.selected = true;
+    sel.appendChild(placeholder);
     steps.forEach(s => {
       const opt = el('option', { value: s, text: s });
       if (s === current) opt.selected = true;
@@ -237,9 +277,22 @@ export function mountDialogs(deps) {
   function renderCompanyDialog(companyId) {
     const name = (companyId && resolveCompanyName(companyId)) || companyId || '(unknown)';
     const contacts = companyId ? (listContactsByCompany(companyId) || []) : [];
+    const company = (typeof getCompanyById === 'function') ? getCompanyById(companyId) : undefined;
 
     const dlg = el('dialog', { class: 'crm-dialog', 'aria-label': `Company ${name}` });
-    const hdr = el('header', {}, [ el('h3', { text: `Company – ${name}` }) ]);
+    const hdr = el('header', {}, [ 
+      el('h3', { text: `Company – ${name}` }),
+      company && company.isClient ? el('span', { class: 'badge badge-client', text: 'Client' }) : el('span', { class:'badge badge-nonclient', text:'Prospect' })
+    ]);
+
+    const meta = el('div', { class:'crm-meta' }, [
+      rowKV('Company ID', company?.id || companyId || ''),
+      rowKV('HQ Country', company?.hqCountry || ''),
+      rowKV('Website', company?.website || ''),
+      rowKV('Type', company?.type || ''),
+      rowKV('Main segment', company?.mainSegment || ''),
+      rowKV('Description', company?.description || '')
+    ]);
 
     const list = el('div', {}, [
       el('p', { text: 'Contacts:' }),
@@ -252,20 +305,31 @@ export function mountDialogs(deps) {
       el('button', { class: 'crm-btn', 'data-role': 'close', onClick: (e)=>{ e.preventDefault(); closeTop(); } }, [document.createTextNode('Close')])
     ]);
 
-    dlg.append(hdr, list, actions);
+    dlg.append(hdr, meta, list, actions);
     return dlg;
   }
 
   function renderContactDialog(contactId) {
     const name = (contactId && resolveContactName(contactId)) || contactId || '(unknown)';
+    const contact = (typeof getContactById === 'function') ? getContactById(contactId) : undefined;
 
     const dlg = el('dialog', { class: 'crm-dialog', 'aria-label': `Contact ${name}` });
     const hdr = el('header', {}, [ el('h3', { text: `Contact – ${name}` }) ]);
 
-    // We don't have a direct resolver for contact→company, keep it simple:
-    const info = el('div', {}, [
-      el('p', { text: `Contact ID: ${contactId || '(none)'}` }),
-      el('p', {}, [document.createTextNode('Company: '), link('Open company (enter ID in Opportunity dialog)', ()=>{})])
+    const info = el('div', { class:'crm-meta' }, [
+      rowKV('Contact ID', contact?.id || contactId || ''),
+      rowKV('Company ID', contact?.companyId || ''),
+      rowKV('First name', contact?.firstName || ''),
+      rowKV('Last name', contact?.lastName || ''),
+      rowKV('Email', contact?.email || ''),
+      rowKV('Phone', contact?.phone || ''),
+      rowKV('Job title', contact?.jobTitle || ''),
+      rowKV('Address', [
+        (contact?.addressStreet||''), 
+        (contact?.addressCity||''), 
+        (contact?.addressPostalCode||''), 
+        (contact?.addressCountry||'')
+      ].filter(Boolean).join(', '))
     ]);
 
     const actions = el('menu', {}, [
@@ -274,6 +338,15 @@ export function mountDialogs(deps) {
 
     dlg.append(hdr, info, actions);
     return dlg;
+  }
+
+  function rowKV(k, v){
+    const valNode = (typeof v === 'string') ? document.createTextNode(v) : (v instanceof Node ? v : document.createTextNode(String(v||'')));
+    const wrap = el('div', { class:'kv' }, [
+      el('div', { class:'kv-k', text:k }),
+      el('div', { class:'kv-v' }, [ valNode ])
+    ]);
+    return wrap;
   }
 
   return {
