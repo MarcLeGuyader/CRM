@@ -1,11 +1,11 @@
 // modules/top-banner/top-banner.js
-// Minimal, self-contained banner with inline styles and robust logo handling.
+
 export function mount(container, bus) {
   if (!container) throw new Error("mount(container, ...) requires a container element");
   if (!bus || typeof bus.emit !== "function") throw new Error("mount(...) requires a bus with emit(topic, payload)");
 
   // 1) Resolve logo relative to this file and add a cache-buster
-  const logoSrc = new URL('./maello-logo.png', import.meta.url).href;
+  const logoSrc = "./maello-logo.png";
   const title = "CRM";
 
   // 2) Build DOM with inline styles (no external CSS dependencies)
@@ -62,22 +62,6 @@ export function mount(container, bus) {
   root.appendChild(status);
   container.appendChild(root);
 
-  // 3) Robust logo diagnostics
-  console.log("[TopBanner] resolved logo URL:", img.src);
-  img.addEventListener("load", () => {
-    console.log("[TopBanner] ✅ logo loaded:", img.src);
-    status.textContent = `Logo loaded ✓ — ${img.src}`;
-    status.style.color = "#e7ffe7";
-  });
-  img.addEventListener("error", () => {
-    console.error("[TopBanner] ⚠️ failed to load logo:", img.src);
-    status.textContent = `⚠️ Failed to load logo — ${img.src}`;
-    status.style.color = "#ffe3e3";
-    // visual fallback so layout doesn’t break
-    img.replaceWith(Object.assign(document.createElement("div"), {
-      textContent: "🟩", style: "font-size:28px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;background:#ffffff22;border-radius:6px"
-    }));
-  });
 
   // 4) Emit helper
   const emit = (topic) => bus.emit(topic, { ts: Date.now() });
