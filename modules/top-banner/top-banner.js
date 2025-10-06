@@ -43,18 +43,32 @@ export function mount(container, bus) {
 
   container.appendChild(root);
 
-  // Debug log for logo loading
-console.log(`[TopBanner] Trying to load logo from: ${logoSrc}`);
-
-const img = root.querySelector('.logo');
-if (img) {
-  img.addEventListener('load', () => console.log("[TopBanner] ✅ Logo loaded successfully"));
-  img.addEventListener('error', () => console.error("[TopBanner] ⚠️ Failed to load logo"));
-}
-
   // Emit helper with timestamp
   const emit = (topic) => bus.emit(topic, { ts: Date.now() });
 
+
+
+  //////////////. a enlever
+
+  // Debug log for logo loading
+
+
+  // Resolve logo path relative to THIS module file (not index.html)
+const logoSrc = new URL('./maello-logo.png', import.meta.url).href;
+const title = "CRM";
+
+// ... after container.appendChild(root); keep the debug but log the real src:
+const img = root.querySelector('.logo');
+if (img) {
+  console.log('[TopBanner] Looking for logo at:', img.src); // <-- this is the actual resolved URL
+  img.addEventListener('load',   () => console.log('[TopBanner] ✅ Logo loaded:', img.src));
+  img.addEventListener('error',  () => console.error('[TopBanner] ⚠️ Failed to load logo:', img.src));
+} else {
+  console.error('[TopBanner] ❌ No .logo element found');
+}
+
+  ///////////////////
+  
   // Wire events
   root.querySelector("#btnFilter")?.addEventListener("click", () => emit("ui.banner.filter"));
   root.querySelector("#btnNew")?.addEventListener("click", () => emit("ui.banner.new"));
