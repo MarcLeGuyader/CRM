@@ -1,14 +1,15 @@
 // modules/top-banner/top-banner.js
+// Top Banner module — renders header UI and emits ui.banner.* events via the shared event bus
 
 export function mount(container, bus) {
   if (!container) throw new Error("mount(container, ...) requires a container element");
   if (!bus || typeof bus.emit !== "function") throw new Error("mount(...) requires a bus with emit(topic, payload)");
 
-  // 1) Resolve logo relative to this file and add a cache-buster
-  const logoSrc = "./maello-logo.png";
+  // Resolve logo relative to this module
+  const logoSrc = new URL('./maello-logo.png', import.meta.url).href;
   const title = "CRM";
 
-  // 2) Build DOM with inline styles (no external CSS dependencies)
+  // Build DOM
   const root = document.createElement("header");
   root.className = "banner";
   root.style.cssText = [
@@ -32,7 +33,7 @@ export function mount(container, bus) {
     return b;
   };
 
-  // logo + title
+  // Logo + title
   const img = document.createElement("img");
   img.src = logoSrc;
   img.alt = "Logo";
@@ -52,21 +53,14 @@ export function mount(container, bus) {
   right.appendChild(mkBtn("btnExport","Export Excel CRM"));
   right.appendChild(mkBtn("btnSave","Save","background:#2f9e44;color:#fff;"));
 
-  // status line (ALWAYS visible, helps debug)
-  const status = document.createElement("div");
-  status.style.cssText = "width:100%;font-size:12px;color:#fffa; margin-top:4px";
-  status.textContent = `Logo path: ${logoSrc}`;
-
   root.appendChild(left);
   root.appendChild(right);
-  root.appendChild(status);
   container.appendChild(root);
 
-
-  // 4) Emit helper
+  // Emit helper
   const emit = (topic) => bus.emit(topic, { ts: Date.now() });
 
-  // 5) Wire events
+  // Wire events
   root.querySelector("#btnFilter")?.addEventListener("click", () => emit("ui.banner.filter"));
   root.querySelector("#btnNew")?.addEventListener("click", () => emit("ui.banner.new"));
   root.querySelector("#btnDebug")?.addEventListener("click", () => emit("ui.banner.debug"));
