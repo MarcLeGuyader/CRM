@@ -1,42 +1,59 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>CRM Modular App</title>
-  <link rel="stylesheet" href="./styles/main.css" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>CRM – Core (Bus + Orchestrator + Debug + Banner)</title>
+  <link rel="stylesheet" href="./styles/main.css">
+  <style>
+    /* minimal safe defaults in case main.css is missing */
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif;background:#f7f9f8;color:#0b1320}
+    header#banner{background:rgb(75,134,128);color:#fff}
+    main{padding:16px}
+    footer#debug{padding:8px 12px}
+  </style>
 </head>
 <body>
-  <!-- Root containers -->
-  <div id="banner"></div>
-  <div id="filters"></div>
-  <div id="table"></div>
-  <div id="dialogs"></div>
-  <div id="debug"></div>
+  <header id="banner"></header>
+  <main>
+    <p>Core loaded. Use the banner buttons and watch the debug console.</p>
+  </main>
+  <footer id="debug"></footer>
 
-  <!-- Load modules -->
+  <!-- 1) Event Bus (ESM). We also publish it to window for modules that expect window.bus -->
   <script type="module">
     import { bus } from './modules/event-bus/bus.js';
-    import { mount as mountTopBanner } from './modules/top-banner/top-banner.js';
-    import { mount as mountDebugConsole } from './modules/debug-console/debug-console.js';
-    // Other modules will follow (filter-console, data orchestrator, etc.)
+    window.bus = bus; // make it globally available
+    console.log('[CRM] Event bus ready. listeners:', bus.count?.() ?? '(n/a)');
+  </script>
 
-    // Make the bus global if needed by tests or other scripts
-    window.bus = bus;
+  <!-- 2) Data Orchestrator (IIFE). It expects window.bus and auto-bootstraps -->
+  <script src="./modules/data-orchestrator/data-orchestrator.js"></script>
 
-    // Mount each UI module
-    mountTopBanner(
-      document.getElementById('banner'),
-      bus,
-      { title: 'CRM', logoSrc: './assets/maello-logo.png' }
-    );
+  <!-- 3) Debug Console (IIFE exposing window.DebugConsole) -->
+  <script src="./modules/debug-console/debug-console.js"></script>
 
-    mountDebugConsole(
-      document.getElementById('debug'),
-      bus
-    );
+  <!-- 4) Top Banner (ESM) + wire minimal log to debug console -->
+  <script type="module">
+    import { mount as mountBanner } from './modules/top-banner/top-banner.js';
 
-    // Next modules can subscribe to bus events (filters, table, dialogs...)
+    // Mount Debug Console first
+    const debugApi = window.DebugConsole?.mount(document.getElementById('debug')) || null;
+
+    // Mount Banner (uses the same global bus)
+    mountBanner(document.getElementById('banner'), window.bus, {
+      title: 'CRM',
+      logoSrc: './assets/maello-logo.png' // use your logo; fallback is okay if the file is missing
+    });
+
+    // Minimal temporary wiring: log banner events to debug console so you see the clicks
+    const topics = [
+      'ui.banner.filter','ui.banner.new','ui.banner.debug',
+      'ui.banner.reset','ui.banner.upload','ui.banner.export','ui.banner.save'
+    ];
+    topics.forEach(t => window.bus.on(t, p => debugApi?.log(t, p)));
+
+    console.log('[CRM] Core (bus+orchestrator+debug+banner) initialized.');
   </script>
 </body>
 </html>
