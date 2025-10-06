@@ -5,11 +5,11 @@ export function mount(container, bus) {
   if (!container) throw new Error("mount(container, ...) requires a container element");
   if (!bus || typeof bus.emit !== "function") throw new Error("mount(...) requires a bus with emit(topic, payload)");
 
-  // Logo path resolved relative to this file
-  const logoSrc = new URL('./maello-logo.png', import.meta.url).href;
+  // Simple local path — assumes logo is in the same folder as this JS file
+  const logoSrc = "./maello-logo.png";
   const title = "CRM maello";
 
-  // Build DOM
+  // Create DOM
   const root = document.createElement("header");
   root.className = "banner";
   root.innerHTML = `
@@ -26,19 +26,10 @@ export function mount(container, bus) {
       <button id="btnExport" class="btn" aria-label="Export Excel/CSV">Export Excel CRM</button>
       <button id="btnSave" class="btn success" aria-label="Save">Save</button>
     </div>
-    <p style="font-size:12px;color:#ffd; margin:6px 0 0 6px;">Logo path: <code>${logoSrc}</code></p>
   `;
   container.appendChild(root);
 
-  // Tiny debug for the logo element
-  const img = root.querySelector('.logo');
-  if (img) {
-    console.log('[TopBanner] looking for logo at:', img.src);
-    img.addEventListener('load',  () => console.log('[TopBanner] ✅ logo loaded'));
-    img.addEventListener('error', () => console.error('[TopBanner] ⚠️ logo failed to load:', img.src));
-  }
-
-  // Emit helper
+  // Emit helper with timestamp
   const emit = (topic) => bus.emit(topic, { ts: Date.now() });
 
   // Wire events
@@ -50,5 +41,5 @@ export function mount(container, bus) {
   root.querySelector("#btnExport")?.addEventListener("click", () => emit("ui.banner.export"));
   root.querySelector("#btnSave")?.addEventListener("click", () => emit("ui.banner.save"));
 
-  return { destroy(){ root.remove(); } };
+  return { destroy() { root.remove(); } };
 }
