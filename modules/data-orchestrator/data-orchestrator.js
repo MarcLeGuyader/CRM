@@ -11,6 +11,7 @@
 //     Contact.ID     : CON-######
 //     Opportunity.ID : OPP-######
 
+import { setAllowedSalesSteps } from '../validation-rules/validation-rules.js';
 (function(){
   const BUS = (typeof window !== 'undefined' && window.bus) ? window.bus : null;
   if (!BUS) { console.error('[data-orchestrator] Event bus not found on window.bus'); return; }
@@ -239,7 +240,7 @@
     const inRows = Array.isArray(payload.rows) ? payload.rows : [];
     const inCompanies = Array.isArray(payload.companies) ? payload.companies : [];
     const inContacts = Array.isArray(payload.contacts) ? payload.contacts : [];
-    const inSalesSteps = Array.isArray(payload.salesSteps) ? payload.salesSteps.filter(Boolean) : [];
+    const inSalesSteps = Array.isArray(payload.salesSteps) ? payload.salesSteps.filter(Boolean) : []
 
     // Companies
     for (const c of inCompanies){
@@ -268,8 +269,11 @@
     }
 
     // Sales steps (remplace la liste si fournie)
-    if (inSalesSteps.length) state.salesSteps = inSalesSteps.slice();
-
+     if (inSalesSteps.length){
+      state.salesSteps = inSalesSteps.slice();
+      // IMPORTANT : pousse la liste dans le module de validation
+      setAllowedSalesSteps(state.salesSteps);
+    }
     // Lookups + client list
     rebuildDerivedLookups();
 
@@ -352,6 +356,10 @@
     });
 
     state.salesSteps = Array.isArray(steps) && steps.length ? steps.slice() : [];
+    // Si des steps sont déjà persistées, on les publie au validateur dès le boot
+    if (state.salesSteps.length){
+      setAllowedSalesSteps(state.salesSteps);
+    }
     state.clientList = Array.isArray(clients) && clients.length ? clients.slice()
                       : Object.values(state.compIndex).filter(c => !!c.isClient).map(c => c.id);
 
