@@ -1,14 +1,16 @@
 // modules/top-banner/top-banner.js
 // Top Banner module — renders header UI and emits ui.banner.* events via the shared event bus
 
+// modules/top-banner/top-banner.js
+import './top-banner.css'; // <-- local CSS for banner
+
 export function mount(container, bus) {
   if (!container) throw new Error("mount(container, ...) requires a container element");
   if (!bus || typeof bus.emit !== "function") throw new Error("mount(...) requires a bus with emit(topic, payload)");
 
-  const logoSrc = "./maello-logo.png";
-  const title = "CRM";
+  const logoSrc = new URL('./maello-logo.png', import.meta.url).href;
+  const title = "CRM maello";
 
-  // Create DOM
   const root = document.createElement("header");
   root.className = "banner";
   root.innerHTML = `
@@ -28,10 +30,8 @@ export function mount(container, bus) {
   `;
   container.appendChild(root);
 
-  // Emit helper with timestamp
   const emit = (topic) => bus.emit(topic, { ts: Date.now() });
 
-  // Wire events
   root.querySelector("#btnFilter")?.addEventListener("click", () => emit("ui.banner.filter"));
   root.querySelector("#btnNew")?.addEventListener("click", () => emit("ui.banner.new"));
   root.querySelector("#btnDebug")?.addEventListener("click", () => emit("ui.banner.debug"));
