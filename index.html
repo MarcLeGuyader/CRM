@@ -1,49 +1,68 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>CRM – maello</title>
-  <link rel="stylesheet" href="./styles/main.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CRM Modular App</title>
+
+  <!-- Global styles -->
+  <link rel="stylesheet" href="./styles/main.css" />
+
+  <!-- Optional local module CSS -->
+  <link rel="stylesheet" href="./modules/filters/filters.css" />
 </head>
+
 <body>
-  <header id="banner"></header>
-  <main>
-    <p>Core loaded. Use the banner buttons and watch the debug console.</p>
-  </main>
-  <footer id="debug"></footer>
+  <div id="app">
+    <header id="banner"></header>
+    <section id="filters"></section>
+    <main id="table"></main>
+    <footer id="debug"></footer>
+  </div>
 
-  <!-- 1) Event Bus (ESM). We also publish it to window for modules that expect window.bus -->
   <script type="module">
+    // === 1. Import modules ===
     import { bus } from './modules/event-bus/bus.js';
-    window.bus = bus; // make it globally available
-    console.log('[CRM] Event bus ready. listeners:', bus.count?.() ?? '(n/a)');
-  </script>
-
-  <!-- 2) Data Orchestrator (IIFE). It expects window.bus and auto-bootstraps -->
-  <script src="./modules/data-orchestrator/data-orchestrator.js"></script>
-
-  <!-- 3) Debug Console (IIFE exposing window.DebugConsole) -->
-  <script src="./modules/debug-console/debug-console.js"></script>
-
-  <!-- 4) Top Banner (ESM) + wire minimal log to debug console -->
-  <script type="module">
     import { mount as mountBanner } from './modules/top-banner/top-banner.js';
+    import { mount as mountDebug } from './modules/debug-console/debug-console.js';
+    import { createFiltersModule } from './modules/filters/filters.js';
 
-    // Mount Debug Console first
-    const debugApi = window.DebugConsole?.mount(document.getElementById('debug')) || null;
+    // === 2. Make bus globally visible for debugging ===
+    window.bus = bus;
 
-    // Mount Banner (uses the same global bus)
-    mountBanner(document.getElementById('banner'), window.bus);
+    // === 3. Mount Debug Console ===
+    const debugApi = mountDebug(document.getElementById('debug'), bus);
+    window.debug = debugApi;
 
-    // Wiring: log banner events to debug console so you see the clicks
+    // === 4. Mount Top Banner ===
+    const bannerApi = mountBanner(document.getElementById('banner'), bus);
+    window.banner = bannerApi;
+
+    // === 5. Mount Filter Console ===
+    const { mount: mountFilters } = createFiltersModule(bus);
+    const filtersApi = mountFilters(
+      document.getElementById('filters'),
+      {
+        q: '',           // free-text search
+        client: '',      // client name or partial
+        closeDate: {},   // { from:'YYYY-MM-DD', to:'YYYY-MM-DD' }
+        salesStep: ''    // sales stage (empty = all)
+      }
+    );
+    window.filters = filtersApi;
+
+    // === 6. Temporary glue: log banner events to debug console ===
     const topics = [
       'ui.banner.filter','ui.banner.new','ui.banner.debug',
       'ui.banner.reset','ui.banner.upload','ui.banner.export','ui.banner.save'
     ];
-    topics.forEach(t => window.bus.on(t, p => debugApi?.log(t, p)));
+    for (const t of topics) {
+      bus.on(t, payload => {
+        debugApi.log(`[${t}]`, payload);
+      });
+    }
 
-    console.log('[CRM] Core (bus+orchestrator+debug+banner) initialized.');
+    console.log('[CRM] Application initialized.');
   </script>
 </body>
 </html>
