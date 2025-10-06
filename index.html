@@ -1,10 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>CRM Modular App</title>
-  <link rel="stylesheet" href="./styles/main.css">
+  <link rel="stylesheet" href="./styles/main.css"/>
+  <style>
+    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, sans-serif; background:#f8f9fa; color:#0f172a; }
+    header, section, main, footer { padding:10px 16px; }
+    #banner { position: sticky; top: 0; background: rgb(75,134,128); color: #fff; z-index: 1000; }
+    #filters, #opportunities, #debug { margin-top: 10px; }
+  </style>
 </head>
 <body>
   <header id="banner"></header>
@@ -12,46 +18,35 @@
   <main id="opportunities"></main>
   <footer id="debug"></footer>
 
-<script type="module">
-  // 1) Load the Event Bus and expose it globally for modules that expect window.bus
-  import { bus } from './modules/event-bus/bus.js';
-  window.bus = bus;
+  <!-- UMD modules that attach to window.* -->
+  <!-- Load the Debug Console UMD so window.DebugConsole is available -->
+  <script src="./modules/debug-console/debug-console.js"></script>
 
-  // 2) Load and mount the Top Banner (the module exports `mount`, not `mountTopBanner`)
-  import { mount as mountTopBanner } from './modules/top-banner/top-banner.js';
-  mountTopBanner(
-    document.getElementById('banner'),
-    bus,
-    { title: 'CRM', logoSrc: './assets/maello-logo.png' }
-  );
+  <script type="module">
+    // 1) Event Bus (your existing global bus module)
+    import { bus } from './modules/event-bus/bus.js';
+    window.bus = bus;
+    console.log('[CRM] Event Bus initialized');
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // Notes for other modules (leave them commented until each module is ready):
-  //
-  // Filters: the module exports `createFiltersModule`, not `mountFilters`.
-  // import { createFiltersModule } from './modules/filters/filters.js';
-  // const { mount: mountFilters } = createFiltersModule(bus);
-  // mountFilters(document.getElementById('filters'));
-  //
-  // Opportunities Table: the file exposes window.OpportunityTable (UMD), not an ESM export.
-  // Include via a <script src="./modules/opportunity-table/opportunity-table.js"></script>
-  // before this block, then:
-  // window.OpportunityTable.mount(document.getElementById('opportunities'), bus, { /* resolvers */ });
-  //
-  // Dialogs: requires dependencies object { bus, resolveCompanyName, resolveContactName, listContactsByCompany, getOpportunityById }.
-  // import { mountDialogs } from './modules/dialogs/dialogs.js';
-  // mountDialogs({ bus, resolveCompanyName: id=>..., resolveContactName: id=>..., listContactsByCompany: id=>[], getOpportunityById: id=>null });
-  //
-  // Debug Console: exposes window.DebugConsole (UMD), not an ESM export.
-  // Include via <script src="./modules/debug-console/debug-console.js"></script>, then:
-  // window.DebugConsole.mount(document.getElementById('debug'));
-  //
-  // Data Orchestrator: self-booting IIFE that reads window.bus; do NOT call dataOrchestrator.init().
-  // It will emit data.loaded automatically when ready.
-  // ─────────────────────────────────────────────────────────────────────────────
+    // 2) Top Banner
+    import { mount as mountTopBanner } from './modules/top-banner/top-banner.js';
+    mountTopBanner(
+      document.getElementById('banner'),
+      bus,
+      { title: 'CRM', logoSrc: './assets/maello-logo.png' }
+    );
 
-  console.log('[CRM] App initialized (Top Banner ready)');
-</script>
-  
+    // 3) Mount Debug Console (UMD exposes window.DebugConsole)
+    if (window.DebugConsole && typeof window.DebugConsole.mount === 'function') {
+      window.DebugConsole.mount(document.getElementById('debug'));
+      console.log('[CRM] Debug Console mounted');
+    } else {
+      console.warn('[CRM] Debug Console script not found or invalid.');
+    }
+
+    // (Optional) later you can mount other modules here...
+
+    console.log('[CRM] App initialized');
+  </script>
 </body>
 </html>
