@@ -20,7 +20,7 @@ export function mount(container, bus) {
   if (!bus || typeof bus.emit !== "function") throw new Error("mount(...) requires a bus with emit(topic, payload)");
 
   // ✅ Fixed path: local logo inside this module
-  const logoSrc = "./modules/top-banner/maello-logo.png";
+  const logoSrc = "./maello-logo.png";
   const title = "CRM";
 
   // Create DOM
