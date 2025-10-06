@@ -1,66 +1,51 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CRM Modular App</title>
-
-  <!-- Global styles -->
-  <link rel="stylesheet" href="./styles/main.css" />
-
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>CRM – Modular App</title>
+  <link rel="stylesheet" href="./styles/main.css">
 </head>
-
 <body>
-  <div id="app">
-    <header id="banner"></header>
-    <section id="filters"></section>
-    <main id="table"></main>
-    <footer id="debug"></footer>
-  </div>
+  <!-- Containers for each mounted module -->
+  <div id="banner"></div>
+  <div id="filters"></div>
+  <main id="table"></main>
+  <div id="debug"></div>
 
   <script type="module">
-    // === 1. Import modules ===
+    // === 1. Load Event Bus ===
     import { bus } from './modules/event-bus/bus.js';
+    window.bus = bus; // expose globally for debug
+
+    // === 2. Import active modules ===
     import { mount as mountBanner } from './modules/top-banner/top-banner.js';
+    import { mount as mountFilters } from './modules/filter-console/filter-console.js';
     import { mount as mountDebug } from './modules/debug-console/debug-console.js';
-    import { createFiltersModule } from './modules/filters/filters.js';
 
-    // === 2. Make bus globally visible for debugging ===
-    window.bus = bus;
+    // === 3. Mount debug console ===
+    const debugApi = mountDebug(document.getElementById('debug'), window.bus);
 
-    // === 3. Mount Debug Console ===
-    const debugApi = mountDebug(document.getElementById('debug'), bus);
-    window.debug = debugApi;
+    // === 4. Mount banner ===
+    mountBanner(document.getElementById('banner'), window.bus, {
+      title: 'CRM',
+      logoSrc: './modules/top-banner/maello-logo.png'
+    });
 
-    // === 4. Mount Top Banner ===
-    const bannerApi = mountBanner(document.getElementById('banner'), bus);
-    window.banner = bannerApi;
+    // === 5. Mount filter console ===
+    mountFilters(document.getElementById('filters'), window.bus);
 
-    // === 5. Mount Filter Console ===
-    const { mount: mountFilters } = createFiltersModule(bus);
-    const filtersApi = mountFilters(
-      document.getElementById('filters'),
-      {
-        q: '',           // free-text search
-        client: '',      // client name or partial
-        closeDate: {},   // { from:'YYYY-MM-DD', to:'YYYY-MM-DD' }
-        salesStep: ''    // sales stage (empty = all)
-      }
-    );
-    window.filters = filtersApi;
-
-    // === 6. Temporary glue: log banner events to debug console ===
+    // === 6. Temporary glue: log banner & filter events to debug console ===
     const topics = [
       'ui.banner.filter','ui.banner.new','ui.banner.debug',
-      'ui.banner.reset','ui.banner.upload','ui.banner.export','ui.banner.save'
+      'ui.banner.reset','ui.banner.upload','ui.banner.export','ui.banner.save',
+      'filters.changed','filters.cleared','filters.toggled'
     ];
     for (const t of topics) {
-      bus.on(t, payload => {
-        debugApi.log(`[${t}]`, payload);
-      });
+      bus.on(t, payload => debugApi.log(`[${t}]`, payload));
     }
 
-    console.log('[CRM] Application initialized.');
+    console.log('[CRM] App started with Banner + Filters + Debug');
   </script>
 </body>
 </html>
