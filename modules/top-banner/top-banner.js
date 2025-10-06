@@ -5,22 +5,11 @@ export function mount(container, bus) {
   if (!container) throw new Error("mount(container, ...) requires a container element");
   if (!bus || typeof bus.emit !== "function") throw new Error("mount(...) requires a bus with emit(topic, payload)");
 
-  // 1) Ensure module-local CSS is loaded (no bundler needed)
-  (function ensureStyle() {
-    if (document.getElementById('top-banner-css')) return;
-    const link = document.createElement('link');
-    link.id = 'top-banner-css';
-    link.rel = 'stylesheet';
-    // resolve href relative to THIS file:
-    link.href = new URL('./top-banner.css', import.meta.url).href;
-    document.head.appendChild(link);
-  })();
-
-  // 2) Logo path resolved relative to this file
+  // Logo path resolved relative to this file
   const logoSrc = new URL('./maello-logo.png', import.meta.url).href;
   const title = "CRM maello";
 
-  // 3) Build DOM
+  // Build DOM
   const root = document.createElement("header");
   root.className = "banner";
   root.innerHTML = `
@@ -41,7 +30,7 @@ export function mount(container, bus) {
   `;
   container.appendChild(root);
 
-  // 4) Tiny debug for the logo element
+  // Tiny debug for the logo element
   const img = root.querySelector('.logo');
   if (img) {
     console.log('[TopBanner] looking for logo at:', img.src);
@@ -49,10 +38,10 @@ export function mount(container, bus) {
     img.addEventListener('error', () => console.error('[TopBanner] ⚠️ logo failed to load:', img.src));
   }
 
-  // 5) Emit helper
+  // Emit helper
   const emit = (topic) => bus.emit(topic, { ts: Date.now() });
 
-  // 6) Wire events
+  // Wire events
   root.querySelector("#btnFilter")?.addEventListener("click", () => emit("ui.banner.filter"));
   root.querySelector("#btnNew")?.addEventListener("click", () => emit("ui.banner.new"));
   root.querySelector("#btnDebug")?.addEventListener("click", () => emit("ui.banner.debug"));
