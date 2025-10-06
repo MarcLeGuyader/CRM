@@ -8,8 +8,11 @@
   align-items: center;
   background-color: rgb(75, 134, 128); /* main green tone */
   color: white;
-  padding: 10px 20px;
+  padding: 8px 20px;
+  height: 60px; /* fixed height for alignment consistency */
   box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  box-sizing: border-box;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
 .banner .left,
@@ -23,23 +26,32 @@
   height: 40px;
   width: 40px;
   object-fit: contain;
+  border-radius: 6px;
+  background-color: rgba(255,255,255,0.15); /* fallback background in case logo is transparent or missing */
 }
 
 .banner .title {
-  font-size: 22px;
-  margin: 0 16px 0 8px;
+  font-size: 20px;
+  margin: 0 16px 0 10px;
   font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.5px;
 }
+
+/* ===========================
+   Buttons
+   =========================== */
 
 .banner .btn {
   background: white;
   color: rgb(75, 134, 128);
   border: none;
-  padding: 6px 10px;
+  padding: 6px 12px;
   border-radius: 4px;
   cursor: pointer;
   font-weight: 500;
-  transition: background 0.2s ease, color 0.2s ease;
+  font-size: 14px;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.1s ease;
 }
 
 .banner .btn:hover {
@@ -64,5 +76,21 @@
 }
 
 .banner .btn:active {
-  transform: scale(0.98);
+  transform: scale(0.97);
+}
+
+/* ===========================
+   Responsive adjustments
+   =========================== */
+@media (max-width: 700px) {
+  .banner {
+    flex-wrap: wrap;
+    height: auto;
+    padding: 10px;
+  }
+  .banner .right {
+    margin-top: 8px;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
 }
