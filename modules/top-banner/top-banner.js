@@ -19,7 +19,9 @@ export function mount(container, bus) {
   if (!container) throw new Error("mount(container, ...) requires a container element");
   if (!bus || typeof bus.emit !== "function") throw new Error("mount(...) requires a bus with emit(topic, payload)");
 
-  const logoSrc = "./modules/top-banner/maello-logo.png";
+ // Resolve logo path relative to THIS module file (not index.html)
+  const logoSrc = new URL('./maello-logo.png', import.meta.url).href;
+  
   const title = "CRM";
 
   // Create DOM
