@@ -176,8 +176,15 @@
     const off = [];
     off.push(bus.on('filters.changed', payload => { state.filters = payload || null; render(); }));
     off.push(bus.on('filters.cleared', () => { state.filters = null; render(); }));
-    off.push(bus.on('opps.updated', () => render()));
-
+    
+off.push(bus.on('opps.updated', () => {
+  const s = window.DATA?.orchestrator?.getState?.();
+  if (s?.rows && Array.isArray(s.rows)) {
+    state.rows = s.rows;   // on récupère les lignes depuis l’orchestrateur
+  }
+  render();
+}));
+    
     off.push(bus.on('data.loaded', payload => { 
       if (!payload) return;
       // rows
