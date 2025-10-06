@@ -1,0 +1,157 @@
+[
+  {
+    "emitter": "Top Banner",
+    "event": "ui.banner.filter",
+    "payload": "{ ts }",
+    "listeners": [
+      "Filter Console"
+    ]
+  },
+  {
+    "emitter": "Top Banner",
+    "event": "ui.banner.new",
+    "payload": "{ ts }",
+    "listeners": [
+      "Dialogs"
+    ]
+  },
+  {
+    "emitter": "Top Banner",
+    "event": "ui.banner.debug",
+    "payload": "{ ts }",
+    "listeners": [
+      "Debug Console"
+    ]
+  },
+  {
+    "emitter": "Top Banner",
+    "event": "ui.banner.reset",
+    "payload": "{ ts }",
+    "listeners": [
+      "Filter Console",
+      "Data Orchestrator"
+    ]
+  },
+  {
+    "emitter": "Top Banner",
+    "event": "ui.banner.upload",
+    "payload": "{ ts }",
+    "listeners": [
+      "Import/Export"
+    ]
+  },
+  {
+    "emitter": "Top Banner",
+    "event": "ui.banner.export",
+    "payload": "{ ts, format? }",
+    "listeners": [
+      "Import/Export"
+    ]
+  },
+  {
+    "emitter": "Top Banner",
+    "event": "ui.banner.save",
+    "payload": "{ ts }",
+    "listeners": [
+      "Data Orchestrator"
+    ]
+  },
+  {
+    "emitter": "Filter Console",
+    "event": "filters.changed",
+    "payload": "{ q, client, closeDate, salesStep }",
+    "listeners": [
+      "Opportunities Table"
+    ]
+  },
+  {
+    "emitter": "Filter Console",
+    "event": "filters.cleared",
+    "payload": "{}",
+    "listeners": [
+      "Opportunities Table"
+    ]
+  },
+  {
+    "emitter": "Opportunities Table",
+    "event": "dialogs.open.opportunity",
+    "payload": "{ id? }",
+    "listeners": [
+      "Dialogs"
+    ]
+  },
+  {
+    "emitter": "Opportunities Table",
+    "event": "dialogs.open.company",
+    "payload": "{ companyId }",
+    "listeners": [
+      "Dialogs"
+    ]
+  },
+  {
+    "emitter": "Opportunities Table",
+    "event": "dialogs.open.contact",
+    "payload": "{ contactId }",
+    "listeners": [
+      "Dialogs"
+    ]
+  },
+  {
+    "emitter": "Dialogs",
+    "event": "opps.validate.request",
+    "payload": "{ draft }",
+    "listeners": [
+      "Data Orchestrator"
+    ]
+  },
+  {
+    "emitter": "Dialogs",
+    "event": "opps.save.request",
+    "payload": "{ draft }",
+    "listeners": [
+      "Data Orchestrator"
+    ]
+  },
+  {
+    "emitter": "Data Orchestrator",
+    "event": "opps.validate.result",
+    "payload": "{ ok, errors? }",
+    "listeners": [
+      "Dialogs"
+    ]
+  },
+  {
+    "emitter": "Data Orchestrator",
+    "event": "opps.save.result",
+    "payload": "{ ok, id?, errors? }",
+    "listeners": [
+      "Dialogs"
+    ]
+  },
+  {
+    "emitter": "Data Orchestrator",
+    "event": "opps.updated",
+    "payload": "{ id }",
+    "listeners": [
+      "Opportunities Table"
+    ]
+  },
+  {
+    "emitter": "Import/Export",
+    "event": "data.import.report",
+    "payload": "{ ok, errors?, warnings?, added?, updated? }",
+    "listeners": [
+      "Data Orchestrator",
+      "Debug Console"
+    ]
+  },
+  {
+    "emitter": "Import/Export",
+    "event": "data.export.done",
+    "payload": "{ format, blobUrl }",
+    "listeners": [
+      "Top Banner",
+      "Debug Console"
+    ]
+  }
+]
