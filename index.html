@@ -5,8 +5,22 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>CRM – Modular App</title>
   <link rel="stylesheet" href="./styles/main.css">
-  <!-- Optional (only needed for .xlsx import/export). Safe to remove if you use CSV only. -->
-  <!-- <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script> -->
+
+  <!-- XLSX loader helper: injects SheetJS if not already present -->
+  <script>
+    async function ensureXLSX() {
+      if (window.XLSX) return true;
+      return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+        s.crossOrigin = 'anonymous';
+        s.referrerPolicy = 'no-referrer';
+        s.onload = () => resolve(true);
+        s.onerror = () => reject(new Error('Failed to load SheetJS (XLSX)'));
+        document.head.appendChild(s);
+      });
+    }
+  </script>
 </head>
 <body>
   <div id="banner"></div>
@@ -80,7 +94,6 @@
       // Track rows for import/export
       bus.on('data.loaded', p => { if (p?.rows) currentRows = p.rows; });
       bus.on('opps.updated', () => {
-        // if orchestrator is present, refresh snapshot
         if (window.DATA?.orchestrator?.getState) {
           const s = window.DATA.orchestrator.getState();
           if (s?.rows) currentRows = s.rows;
@@ -107,8 +120,10 @@
       debugApi.log('[error] opportunity-table: ' + (e?.message||e));
     }
 
-    // === 6) Import/Export
+    // === 6) Import/Export (Excel support ensured)
     try {
+      await ensureXLSX(); // <-- Make sure SheetJS is present on window.XLSX
+
       const { registerImportExport } = await import('./modules/import-export/index.js');
 
       // Prefer orchestrator rows; fallback to our currentRows snapshot
