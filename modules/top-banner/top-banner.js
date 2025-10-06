@@ -1,27 +1,11 @@
 // modules/top-banner/top-banner.js
 // Top Banner module — renders header UI and emits ui.banner.* events via the shared event bus
-//
-// API:
-//   mount(container: HTMLElement, bus: { emit(topic, payload) })
-//   -> returns { destroy(): void }
-//
-// Emits (payload = { ts: number }):
-//   ui.banner.filter
-//   ui.banner.new
-//   ui.banner.debug
-//   ui.banner.reset
-//   ui.banner.upload
-//   ui.banner.export
-//   ui.banner.save
-//
-
 export function mount(container, bus) {
   if (!container) throw new Error("mount(container, ...) requires a container element");
   if (!bus || typeof bus.emit !== "function") throw new Error("mount(...) requires a bus with emit(topic, payload)");
 
- // Resolve logo path relative to THIS module file (not index.html)
+  // Resolve the logo path RELATIVE to this file (not index.html):
   const logoSrc = new URL('./maello-logo.png', import.meta.url).href;
-  
   const title = "CRM";
 
   // Create DOM
@@ -42,35 +26,21 @@ export function mount(container, bus) {
       <button id="btnSave" class="btn success" aria-label="Save">Save</button>
     </div>
   `;
-
   container.appendChild(root);
+
+  // Simple debug for the logo
+  const img = root.querySelector('.logo');
+  if (img) {
+    console.log('[TopBanner] Looking for logo at:', img.src);
+    img.addEventListener('load',  () => console.log('[TopBanner] ✅ Logo loaded:', img.src));
+    img.addEventListener('error', () => console.error('[TopBanner] ⚠️ Failed to load logo:', img.src));
+  } else {
+    console.error('[TopBanner] ❌ No .logo element found');
+  }
 
   // Emit helper with timestamp
   const emit = (topic) => bus.emit(topic, { ts: Date.now() });
 
-
-
-  //////////////. a enlever
-
-  // Debug log for logo loading
-
-
-  // Resolve logo path relative to THIS module file (not index.html)
-const logoSrc = new URL('./maello-logo.png', import.meta.url).href;
-const title = "CRM";
-
-// ... after container.appendChild(root); keep the debug but log the real src:
-const img = root.querySelector('.logo');
-if (img) {
-  console.log('[TopBanner] Looking for logo at:', img.src); // <-- this is the actual resolved URL
-  img.addEventListener('load',   () => console.log('[TopBanner] ✅ Logo loaded:', img.src));
-  img.addEventListener('error',  () => console.error('[TopBanner] ⚠️ Failed to load logo:', img.src));
-} else {
-  console.error('[TopBanner] ❌ No .logo element found');
-}
-
-  ///////////////////
-  
   // Wire events
   root.querySelector("#btnFilter")?.addEventListener("click", () => emit("ui.banner.filter"));
   root.querySelector("#btnNew")?.addEventListener("click", () => emit("ui.banner.new"));
@@ -80,9 +50,5 @@ if (img) {
   root.querySelector("#btnExport")?.addEventListener("click", () => emit("ui.banner.export"));
   root.querySelector("#btnSave")?.addEventListener("click", () => emit("ui.banner.save"));
 
-  return {
-    destroy() {
-      root.remove();
-    }
-  };
+  return { destroy() { root.remove(); } };
 }
