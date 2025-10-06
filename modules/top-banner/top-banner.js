@@ -29,14 +29,8 @@ export function mount(container, bus) {
   container.appendChild(root);
 
   // Simple debug for the logo
-  const img = root.querySelector('.logo');
-  if (img) {
-    console.log('[TopBanner] Looking for logo at:', img.src);
-    img.addEventListener('load',  () => console.log('[TopBanner] ✅ Logo loaded:', img.src));
-    img.addEventListener('error', () => console.error('[TopBanner] ⚠️ Failed to load logo:', img.src));
-  } else {
-    console.error('[TopBanner] ❌ No .logo element found');
-  }
+
+  root.insertAdjacentHTML('beforeend', `<p style="font-size:12px;color:#666;margin:4px 0 0 12px;">Logo path: <code>${logoSrc}</code></p>`);
 
   // Emit helper with timestamp
   const emit = (topic) => bus.emit(topic, { ts: Date.now() });
