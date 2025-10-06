@@ -37,7 +37,7 @@ section#filters {
 }
 
 /* Contenu principal (opportunités) */
-main#opportunities {
+main#opps {           /* <-- corrigé: #opps (et plus #opportunities) */
   padding: 20px;
 }
 
@@ -47,10 +47,13 @@ main#opportunities {
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,.35);
-  display: flex;
+  display: none;                /* <-- caché par défaut pour ne pas bloquer les clics */
   align-items: center;
   justify-content: center;
   z-index: 999; /* au-dessus du bandeau/filters/table */
+}
+.crm-dialogs-backdrop.open{
+  display: flex;                /* <-- visible seulement quand un dialog est ouvert */
 }
 
 .crm-dialog{
@@ -60,6 +63,8 @@ main#opportunities {
   padding: 18px 18px 12px;
   max-width: 780px;
   width: min(94vw, 780px);
+  max-height: 86vh;             /* confort */
+  overflow: auto;               /* scroll interne si contenu long */
   box-shadow: 0 10px 30px rgba(0,0,0,.2);
 }
 
