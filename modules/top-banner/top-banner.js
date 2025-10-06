@@ -11,7 +11,7 @@ export function mount(container, bus) {
 
   // Resolve the logo path RELATIVE to this module file (not index.html)
   const logoSrc = new URL('./maello-logo.png', import.meta.url).href;
-  const title = "CRM maello";
+  const title = "CRM";
 
   // Create DOM
   const root = document.createElement("header");
@@ -35,6 +35,25 @@ export function mount(container, bus) {
 
   container.appendChild(root);
 
+// Debug: check actual image size and make it visible if it's a 1x1 placeholder
+const img = root.querySelector('.logo');
+if (img) {
+  img.addEventListener('load', () => {
+    console.log('[TopBanner] logo loaded:', img.src, 'size=', img.naturalWidth, 'x', img.naturalHeight);
+    if (img.naturalWidth <= 2 && img.naturalHeight <= 2) {
+      console.warn('[TopBanner] logo looks like a 1x1 placeholder – making it visible temporarily.');
+      img.style.width = '40px';
+      img.style.height = '40px';
+      img.style.background = '#fff';
+      img.style.borderRadius = '6px';
+      img.style.outline = '1px solid rgba(0,0,0,.25)';
+    }
+  });
+  img.addEventListener('error', () => {
+    console.error('[TopBanner] logo failed to load:', img.src);
+  });
+}
+  
   // Emit helper with timestamp
   const emit = (topic) => bus.emit(topic, { ts: Date.now() });
 
