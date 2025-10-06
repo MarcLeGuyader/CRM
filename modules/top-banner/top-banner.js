@@ -6,7 +6,7 @@ export function mount(container, bus) {
 
   // 1) Resolve logo relative to this file and add a cache-buster
   const logoSrc = new URL('./maello-logo.png?v=2', import.meta.url).href;
-  const title = "CRM maello";
+  const title = "CRM";
 
   // 2) Build DOM with inline styles (no external CSS dependencies)
   const root = document.createElement("header");
