@@ -3,15 +3,8 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>CRM – Core (Bus + Orchestrator + Debug + Banner)</title>
+  <title>CRM – maello</title>
   <link rel="stylesheet" href="./styles/main.css">
-  <style>
-    /* minimal safe defaults in case main.css is missing */
-    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif;background:#f7f9f8;color:#0b1320}
-    header#banner{background:rgb(75,134,128);color:#fff}
-    main{padding:16px}
-    footer#debug{padding:8px 12px}
-  </style>
 </head>
 <body>
   <header id="banner"></header>
@@ -41,12 +34,9 @@
     const debugApi = window.DebugConsole?.mount(document.getElementById('debug')) || null;
 
     // Mount Banner (uses the same global bus)
-    mountBanner(document.getElementById('banner'), window.bus, {
-      title: 'CRM',
-      logoSrc: './assets/maello-logo.png' // use your logo; fallback is okay if the file is missing
-    });
+    mountBanner(document.getElementById('banner'), window.bus);
 
-    // Minimal temporary wiring: log banner events to debug console so you see the clicks
+    // Wiring: log banner events to debug console so you see the clicks
     const topics = [
       'ui.banner.filter','ui.banner.new','ui.banner.debug',
       'ui.banner.reset','ui.banner.upload','ui.banner.export','ui.banner.save'
