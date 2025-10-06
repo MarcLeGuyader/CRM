@@ -21,6 +21,9 @@ export function mount(container, bus) {
     <div class="right">
       <button id="btnDebug" class="btn outline" aria-label="Toggle debug">🐞 Debug</button>
       <button id="btnReset" class="btn" aria-label="Reset state">⟲ Reset</button>
+      <button id="btnUpload" class="btn" aria-label="Upload Excel/CSV">Upload Excel CRM data</button>
+      <button id="btnExport" class="btn" aria-label="Export Excel/CSV">Export Excel CRM</button>
+      <button id="btnSave" class="btn success" aria-label="Save">Save</button>
     </div>
   `;
   container.appendChild(root);
