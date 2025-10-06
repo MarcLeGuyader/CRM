@@ -5,19 +5,8 @@ export function mount(container, bus) {
   if (!container) throw new Error("mount(container, ...) requires a container element");
   if (!bus || typeof bus.emit !== "function") throw new Error("mount(...) requires a bus with emit(topic, payload)");
 
-  // 1) Ensure local CSS is loaded without using ES import (works on GitHub Pages)
-  (function ensureStyle() {
-    if (document.getElementById('top-banner-css')) return;
-    const link = document.createElement('link');
-    link.id = 'top-banner-css';
-    link.rel = 'stylesheet';
-    // resolve href relative to THIS file:
-    link.href = new URL('./top-banner.css', import.meta.url).href;
-    document.head.appendChild(link);
-  })();
 
-  // 2) Resolve logo path relative to this file
-  const logoSrc = new URL('./maello-logo.png', import.meta.url).href;
+  const logoSrc = new "./maello-logo.png";
   const title = "CRM maello";
 
   // 3) Build DOM
