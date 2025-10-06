@@ -1,0 +1,68 @@
+/* ===========================
+   Top Banner Module Styles
+   =========================== */
+
+.banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: rgb(75, 134, 128); /* main green tone */
+  color: white;
+  padding: 10px 20px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.banner .left,
+.banner .right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.banner .logo {
+  height: 40px;
+  width: 40px;
+  object-fit: contain;
+}
+
+.banner .title {
+  font-size: 22px;
+  margin: 0 16px 0 8px;
+  font-weight: 600;
+}
+
+.banner .btn {
+  background: white;
+  color: rgb(75, 134, 128);
+  border: none;
+  padding: 6px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.banner .btn:hover {
+  background: rgba(255, 255, 255, 0.85);
+}
+
+.banner .btn.primary {
+  background: #ffffff;
+  color: rgb(75, 134, 128);
+  font-weight: 600;
+}
+
+.banner .btn.outline {
+  border: 1px solid white;
+  background: transparent;
+  color: white;
+}
+
+.banner .btn.success {
+  background: #2f9e44;
+  color: white;
+}
+
+.banner .btn:active {
+  transform: scale(0.98);
+}
