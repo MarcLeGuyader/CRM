@@ -1,52 +1,42 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>CRM Modular App</title>
-  <link rel="stylesheet" href="./styles/main.css"/>
-  <style>
-    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, sans-serif; background:#f8f9fa; color:#0f172a; }
-    header, section, main, footer { padding:10px 16px; }
-    #banner { position: sticky; top: 0; background: rgb(75,134,128); color: #fff; z-index: 1000; }
-    #filters, #opportunities, #debug { margin-top: 10px; }
-  </style>
+  <link rel="stylesheet" href="./styles/main.css" />
 </head>
 <body>
-  <header id="banner"></header>
-  <section id="filters"></section>
-  <main id="opportunities"></main>
-  <footer id="debug"></footer>
+  <!-- Root containers -->
+  <div id="banner"></div>
+  <div id="filters"></div>
+  <div id="table"></div>
+  <div id="dialogs"></div>
+  <div id="debug"></div>
 
-  <!-- UMD modules that attach to window.* -->
-  <!-- Load the Debug Console UMD so window.DebugConsole is available -->
-  <script src="./modules/debug-console/debug-console.js"></script>
-
+  <!-- Load modules -->
   <script type="module">
-    // 1) Event Bus (your existing global bus module)
     import { bus } from './modules/event-bus/bus.js';
-    window.bus = bus;
-    console.log('[CRM] Event Bus initialized');
-
-    // 2) Top Banner
     import { mount as mountTopBanner } from './modules/top-banner/top-banner.js';
+    import { mount as mountDebugConsole } from './modules/debug-console/debug-console.js';
+    // Other modules will follow (filter-console, data orchestrator, etc.)
+
+    // Make the bus global if needed by tests or other scripts
+    window.bus = bus;
+
+    // Mount each UI module
     mountTopBanner(
       document.getElementById('banner'),
       bus,
       { title: 'CRM', logoSrc: './assets/maello-logo.png' }
     );
 
-    // 3) Mount Debug Console (UMD exposes window.DebugConsole)
-    if (window.DebugConsole && typeof window.DebugConsole.mount === 'function') {
-      window.DebugConsole.mount(document.getElementById('debug'));
-      console.log('[CRM] Debug Console mounted');
-    } else {
-      console.warn('[CRM] Debug Console script not found or invalid.');
-    }
+    mountDebugConsole(
+      document.getElementById('debug'),
+      bus
+    );
 
-    // (Optional) later you can mount other modules here...
-
-    console.log('[CRM] App initialized');
+    // Next modules can subscribe to bus events (filters, table, dialogs...)
   </script>
 </body>
 </html>
