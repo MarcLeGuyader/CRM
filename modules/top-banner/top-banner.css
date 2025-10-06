@@ -1,96 +1,60 @@
-/* ===========================
-   Top Banner Module Styles
-   =========================== */
+/* modules/top-banner/top-banner.css */
+/* Scoped styles for the top banner only */
 
 .banner {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background-color: rgb(75, 134, 128); /* main green tone */
-  color: white;
-  padding: 8px 20px;
-  height: 60px; /* fixed height for alignment consistency */
-  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-  box-sizing: border-box;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  flex-wrap: wrap;
+  gap: 10px;
+  background: rgb(75, 134, 128);
+  color: #fff;
+  padding: 10px 16px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .banner .left,
 .banner .right {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 10px;
 }
 
 .banner .logo {
-  height: 40px;
   width: 40px;
+  height: 40px;
   object-fit: contain;
-  border-radius: 6px;
-  background-color: rgba(255,255,255,0.15); /* fallback background in case logo is transparent or missing */
 }
 
 .banner .title {
-  font-size: 20px;
-  margin: 0 16px 0 10px;
+  font-size: 22px;
   font-weight: 600;
-  line-height: 1;
-  letter-spacing: 0.5px;
+  margin: 0 12px;
 }
 
-/* ===========================
-   Buttons
-   =========================== */
-
 .banner .btn {
-  background: white;
+  background: #fff;
   color: rgb(75, 134, 128);
   border: none;
-  padding: 6px 12px;
   border-radius: 4px;
-  cursor: pointer;
+  padding: 6px 10px;
   font-weight: 500;
-  font-size: 14px;
-  transition: background 0.2s ease, color 0.2s ease, transform 0.1s ease;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
 }
 
 .banner .btn:hover {
   background: rgba(255, 255, 255, 0.85);
 }
 
-.banner .btn.primary {
-  background: #ffffff;
-  color: rgb(75, 134, 128);
-  font-weight: 600;
-}
-
 .banner .btn.outline {
-  border: 1px solid white;
   background: transparent;
-  color: white;
+  border: 1px solid #fff;
+  color: #fff;
 }
 
 .banner .btn.success {
   background: #2f9e44;
   color: white;
-}
-
-.banner .btn:active {
-  transform: scale(0.97);
-}
-
-/* ===========================
-   Responsive adjustments
-   =========================== */
-@media (max-width: 700px) {
-  .banner {
-    flex-wrap: wrap;
-    height: auto;
-    padding: 10px;
-  }
-  .banner .right {
-    margin-top: 8px;
-    flex-wrap: wrap;
-    gap: 6px;
-  }
 }
