@@ -1,16 +1,26 @@
 // modules/top-banner/top-banner.js
 // Top Banner module — renders header UI and emits ui.banner.* events via the shared event bus
 
-// modules/top-banner/top-banner.js
-import './top-banner.css'; // <-- local CSS for banner
-
 export function mount(container, bus) {
   if (!container) throw new Error("mount(container, ...) requires a container element");
   if (!bus || typeof bus.emit !== "function") throw new Error("mount(...) requires a bus with emit(topic, payload)");
 
+  // 1) Ensure local CSS is loaded without using ES import (works on GitHub Pages)
+  (function ensureStyle() {
+    if (document.getElementById('top-banner-css')) return;
+    const link = document.createElement('link');
+    link.id = 'top-banner-css';
+    link.rel = 'stylesheet';
+    // resolve href relative to THIS file:
+    link.href = new URL('./top-banner.css', import.meta.url).href;
+    document.head.appendChild(link);
+  })();
+
+  // 2) Resolve logo path relative to this file
   const logoSrc = new URL('./maello-logo.png', import.meta.url).href;
   const title = "CRM maello";
 
+  // 3) Build DOM
   const root = document.createElement("header");
   root.className = "banner";
   root.innerHTML = `
@@ -30,8 +40,17 @@ export function mount(container, bus) {
   `;
   container.appendChild(root);
 
+  // (optional) quick debug to confirm the resolved logo URL
+  const img = root.querySelector('.logo');
+  if (img) {
+    console.log('[TopBanner] logo src:', img.src);
+    img.addEventListener('error', () => console.error('[TopBanner] failed to load logo:', img.src));
+  }
+
+  // 4) Emit helper
   const emit = (topic) => bus.emit(topic, { ts: Date.now() });
 
+  // 5) Wire events
   root.querySelector("#btnFilter")?.addEventListener("click", () => emit("ui.banner.filter"));
   root.querySelector("#btnNew")?.addEventListener("click", () => emit("ui.banner.new"));
   root.querySelector("#btnDebug")?.addEventListener("click", () => emit("ui.banner.debug"));
@@ -40,5 +59,5 @@ export function mount(container, bus) {
   root.querySelector("#btnExport")?.addEventListener("click", () => emit("ui.banner.export"));
   root.querySelector("#btnSave")?.addEventListener("click", () => emit("ui.banner.save"));
 
-  return { destroy() { root.remove(); } };
+  return { destroy(){ root.remove(); } };
 }
