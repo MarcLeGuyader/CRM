@@ -39,7 +39,17 @@
       ? window.DebugConsole.mount(document.getElementById('debug'))
       : { log: (...a)=>console.log('[debug fallback]', ...a), toggle:()=>{} };
 
-    // === 3) Top Banner
+    // === 3) Data Orchestrator (source de vérité; écoute data.import.report et ré-émet opps.updated)
+    try {
+      await import('./modules/data-orchestrator/data-orchestrator.js');
+      // l’orchestrateur s’auto-bootstrap et émettra data.loaded
+      debugApi.log('[mounted] data-orchestrator');
+    } catch (e) {
+      console.error('[index] orchestrator error', e);
+      debugApi.log('[error] orchestrator: ' + (e?.message||e));
+    }
+
+    // === 4) Top Banner
     try {
       const { mount: mountBanner } = await import('./modules/top-banner/top-banner.js');
       mountBanner(document.getElementById('banner'), window.bus);
@@ -49,7 +59,7 @@
       debugApi.log('[error] banner: ' + (e?.message||e));
     }
 
-    // === 4) Filters
+    // === 5) Filters
     try {
       const { createFiltersModule } = await import('./modules/filters/filters.js');
       const link = document.createElement('link');
@@ -65,8 +75,8 @@
       debugApi.log('[warn] filters: ' + (e?.message||e));
     }
 
-    // === 5) Opportunities Table
-    let currentRows = []; // keep a local snapshot so Import/Export can read rows without orchestrator
+    // === 6) Opportunities Table
+    let currentRows = []; // snapshot utilisé si orchestrateur absent
     try {
       // CSS
       const tableCss = document.createElement('link');
@@ -77,7 +87,7 @@
       // JS (registers window.OpportunityTable)
       await import('./modules/opportunity-table/opportunity-table.js');
 
-      // Basic resolvers (use orchestrator if present, else fallbacks)
+      // Résolveurs (préfère orchestrateur)
       const resolveCompanyName =
         (window.DATA?.orchestrator?.resolveCompanyName) ||
         ((id)=> ({C001:'Maello',C002:'Globex',C003:'Initech'}[id]));
@@ -91,7 +101,7 @@
         { resolveCompanyName, resolveContactName, currency:'EUR' }
       );
 
-      // Track rows for import/export
+      // Suivre l'état pour l'export (si orchestrateur présent)
       bus.on('data.loaded', p => { if (p?.rows) currentRows = p.rows; });
       bus.on('opps.updated', () => {
         if (window.DATA?.orchestrator?.getState) {
@@ -100,10 +110,10 @@
         }
       });
 
-      // Seed demo rows if orchestrator doesn’t emit
+      // Seed de démo seulement si l’orchestrateur n’a rien émis
       let seeded = false;
       setTimeout(() => {
-        if (!seeded && currentRows.length === 0) {
+        if (!seeded && currentRows.length === 0 && !window.DATA?.orchestrator) {
           seeded = true;
           const rows = [
             { id:'OPP-000001', name:'Migration CRM', salesStep:'Discovery', client:'Maello', owner:'Marc',  companyId:'C001', contactId:'CT001', notes:'', nextAction:'Call', nextActionDate:'2025-10-10', closingDate:'', closingValue:12000 },
@@ -120,13 +130,13 @@
       debugApi.log('[error] opportunity-table: ' + (e?.message||e));
     }
 
-    // === 6) Import/Export (Excel support ensured)
+    // === 7) Import/Export (Excel support ensured)
     try {
       await ensureXLSX(); // <-- Make sure SheetJS is present on window.XLSX
 
       const { registerImportExport } = await import('./modules/import-export/index.js');
 
-      // Prefer orchestrator rows; fallback to our currentRows snapshot
+      // Prefer orchestrator rows; fallback à currentRows
       const getRows = () => {
         const s = window.DATA?.orchestrator?.getState?.();
         return (s && Array.isArray(s.rows)) ? s.rows : (Array.isArray(currentRows) ? currentRows : []);
@@ -139,7 +149,7 @@
       debugApi.log('[warn] import-export: ' + (e?.message||e));
     }
 
-    // === 7) Glue: log key events to debug
+    // === 8) Glue: log key events to debug
     [
       'ui.banner.filter','ui.banner.new','ui.banner.debug','ui.banner.reset',
       'ui.banner.upload','ui.banner.export','ui.banner.save',
