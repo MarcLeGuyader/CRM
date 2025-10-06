@@ -5,6 +5,7 @@ body {
   color: #0b1320;
 }
 
+/* Bandeau principal */
 header {
   background-color: rgb(75, 134, 128);
   color: white;
@@ -15,20 +16,27 @@ header {
   height: 60px;
 }
 
+/* Console debug — placée juste sous le bandeau */
+#debug {
+  background: #eef2f2;
+  border-bottom: 1px solid #c9d3d0;
+  padding: 8px 16px;
+  font-size: 12px;
+  color: #333;
+  font-family: monospace;
+  white-space: pre-wrap;
+  overflow-y: auto;
+  max-height: 160px;
+}
+
+/* Filtres — sous la console debug */
 section#filters {
   background: #e5ecea;
   padding: 10px;
   border-bottom: 1px solid #c9d3d0;
 }
 
+/* Contenu principal (opportunités) */
 main#opportunities {
   padding: 20px;
-}
-
-footer#debug {
-  background: #f0f4f4;
-  border-top: 1px solid #c9d3d0;
-  padding: 10px;
-  font-size: 12px;
-  color: #444;
 }
