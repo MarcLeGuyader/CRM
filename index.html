@@ -23,10 +23,9 @@
   </script>
 </head>
 <body>
-  
   <div id="banner"></div>
-  <div id="debug"></div>   <!-- 👈 debug juste sous le bandeau -->
-  <div id="filters"></div> <!-- 👈 au-dessus des filtres -->
+  <div id="debug"></div>   <!-- debug juste sous le bandeau -->
+  <div id="filters"></div> <!-- au-dessus des filtres -->
   <main id="opps"></main>
 
   <script type="module">
@@ -131,31 +130,61 @@
       debugApi.log('[error] opportunity-table: ' + (e?.message||e));
     }
 
-// === 6.5) Dialogs
-try {
-  const { mountDialogs } = await import('./modules/dialogs/dialogs.js');
+    // === 6.5) Dialogs
+    try {
+      const { mountDialogs } = await import('./modules/dialogs/dialogs.js');
 
-  // optional dynamic resolvers — pass-through orchestrator if available
-  const orchestrator = window.DATA?.orchestrator;
+      // Helpers sûrs basés sur l’orchestrateur.getState()
+      const getState = () => window.DATA?.orchestrator?.getState?.() || {};
+      const getOpportunityById = (id) => {
+        const s = getState();
+        return (s.rows || []).find(r => r.id === id) || null;
+      };
+      const listContactsByCompany = (companyId) => {
+        const s = getState();
+        return (s.contacts || []).filter(c => c.companyId === companyId);
+      };
+      const resolveCompanyName = (id) => {
+        const s = getState();
+        const c = (s.companies || []).find(x => x.id === id);
+        return c?.name || '';
+      };
+      const resolveContactName = (id) => {
+        const s = getState();
+        const ct = (s.contacts || []).find(x => x.id === id);
+        if (!ct) return '';
+        return ct.displayName || [ct.firstName||'', ct.lastName||''].join(' ').trim();
+      };
+      const getCompanyById = (id) => {
+        const s = getState();
+        return (s.companies || []).find(c => c.id === id);
+      };
+      const getContactById = (id) => {
+        const s = getState();
+        return (s.contacts || []).find(c => c.id === id);
+      };
+      const getSalesSteps = () => {
+        const s = getState();
+        return Array.isArray(s.salesSteps) ? s.salesSteps : [];
+      };
 
-  const deps = {
-    bus: window.bus,
-    resolveCompanyName: (id) => orchestrator?.resolveCompanyName?.(id) || '',
-    resolveContactName: (id) => orchestrator?.resolveContactName?.(id) || '',
-    listContactsByCompany: (id) => orchestrator?.listContactsByCompany?.(id) || [],
-    getOpportunityById: (id) => orchestrator?.getOpportunityById?.(id) || null,
-    getSalesSteps: () => orchestrator?.getState?.().salesSteps || [],
-    getCompanyById: (id) => orchestrator?.getCompanyById?.(id),
-    getContactById: (id) => orchestrator?.getContactById?.(id)
-  };
+      window.dialogs = mountDialogs({
+        bus: window.bus,
+        resolveCompanyName,
+        resolveContactName,
+        listContactsByCompany,
+        getOpportunityById,
+        getSalesSteps,
+        getCompanyById,
+        getContactById
+      });
 
-  mountDialogs(deps);
-  debugApi.log('[mounted] dialogs');
-} catch (e) {
-  console.warn('[index] dialogs not mounted', e);
-  debugApi.log('[warn] dialogs: ' + (e?.message || e));
-}
-    
+      debugApi.log('[mounted] dialogs');
+    } catch (e) {
+      console.warn('[index] dialogs not mounted', e);
+      debugApi.log('[warn] dialogs: ' + (e?.message || e));
+    }
+
     // === 7) Import/Export (Excel support ensured)
     try {
       await ensureXLSX(); // <-- Make sure SheetJS is present on window.XLSX
@@ -180,8 +209,9 @@ try {
       'ui.banner.filter','ui.banner.new','ui.banner.debug','ui.banner.reset',
       'ui.banner.upload','ui.banner.export','ui.banner.save',
       'filters.changed','filters.cleared','filters.toggled',
-      'data.loaded','opps.updated','data.import.started','data.import.report','data.export.done','data.export.error'
-    ].forEach(t => bus.on(t, p => debugApi.log(t, p)));
+      'data.loaded','opps.updated','data.import.started','data.import.report','data.export.done','data.export.error',
+      'dialogs.open.opportunity','dialogs.open.company','dialogs.open.contact','dialogs.close'
+    ].forEach(t => bus.on(t, p => debugApi.log(`<${t}>`, p)));
   </script>
 </body>
 </html>
