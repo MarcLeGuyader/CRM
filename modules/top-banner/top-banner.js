@@ -19,7 +19,6 @@ export function mount(container, bus) {
   if (!container) throw new Error("mount(container, ...) requires a container element");
   if (!bus || typeof bus.emit !== "function") throw new Error("mount(...) requires a bus with emit(topic, payload)");
 
-  // ✅ Fixed path: local logo inside this module
   const logoSrc = "./maello-logo.png";
   const title = "CRM";
 
@@ -43,6 +42,15 @@ export function mount(container, bus) {
   `;
 
   container.appendChild(root);
+
+  // Debug log for logo loading
+console.log(`[TopBanner] Trying to load logo from: ${logoSrc}`);
+
+const img = root.querySelector('.logo');
+if (img) {
+  img.addEventListener('load', () => console.log("[TopBanner] ✅ Logo loaded successfully"));
+  img.addEventListener('error', () => console.error("[TopBanner] ⚠️ Failed to load logo"));
+}
 
   // Emit helper with timestamp
   const emit = (topic) => bus.emit(topic, { ts: Date.now() });
