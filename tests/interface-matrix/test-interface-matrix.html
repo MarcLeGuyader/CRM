@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Test – Interface Matrix</title>
+  <style>
+    body{font-family:system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Arial, sans-serif; margin:16px}
+    .row{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+    button{padding:8px 12px; border:1px solid #cbd5e1; border-radius:8px; background:#fff; cursor:pointer}
+    pre{white-space:pre-wrap; background:#f8fafc; padding:12px; border-radius:8px; border:1px solid #e2e8f0; max-height:40vh; overflow:auto}
+  </style>
+</head>
+<body>
+  <h1>Interface Matrix – Test</h1>
+  <div class="row">
+    <button id="btn-attach">Attach guard</button>
+    <button id="btn-simulate">Simulate traffic</button>
+    <button id="btn-audit">Audit</button>
+    <button id="btn-detach">Detach guard</button>
+  </div>
+  <p id="bus-status"></p>
+  <pre id="out"></pre>
+
+  <script type="module">
+    const out = document.getElementById('out');
+    const log = (...a)=>{ out.textContent += (out.textContent?'\n':'') + a.map(x=> typeof x==='object'? JSON.stringify(x,null,2): String(x)).join(' '); };
+    const set = (id,t)=> document.getElementById(id).textContent=t;
+
+    // Try to load the existing bus, fallback to window.bus or a tiny shim
+    let bus;
+    try {
+      const mod = await import('../../modules/event-bus/bus.js');
+      bus = mod.bus;
+      set('bus-status','Event bus: loaded from ../../modules/event-bus/bus.js');
+    } catch(e){
+      bus = window.bus;
+      if (bus) set('bus-status','Event bus: found on window.bus');
+      else {
+        // very tiny shim for demo
+        const map = new Map();
+        bus = {
+          on(topic, fn){ if(!map.has(topic)) map.set(topic,new Set()); map.get(topic).add(fn); return ()=>map.get(topic).delete(fn); },
+          emit(topic, payload){ const s=map.get(topic); if(!s) return 0; let n=0; for (const fn of [...s]) { try{ fn(payload); }catch(e){ console.error(e);} n++; } return n; }
+        };
+        window.bus = bus;
+        set('bus-status','Event bus: shim created (window.bus)');
+      }
+    }
+
+    const { guard, audit, loadMatrix } = await import('../../modules/interface-matrix/interface-matrix.js');
+    const entries = await loadMatrix('../../modules/interface-matrix/matrix.json');
+
+    let detach = null;
+
+    document.getElementById('btn-attach').addEventListener('click', ()=>{
+      if (detach) detach();
+      detach = guard(bus, entries, { mode: 'warn' });
+      log('Guard attached.');
+      // Register a couple listeners to satisfy matrix expectations
+      bus.on('ui.banner.debug', ()=>{});
+      bus.on('filters.changed', ()=>{});
+      bus.on('dialogs.open.opportunity', ()=>{});
+      bus.on('opps.save.request', ()=>{});
+    });
+
+    document.getElementById('btn-simulate').addEventListener('click', ()=>{
+      const ts = Date.now();
+      // known events
+      bus.emit('ui.banner.filter', { ts });
+      bus.emit('ui.banner.new', { ts });
+      bus.emit('ui.banner.debug', { ts });
+      bus.emit('filters.changed', { q:'globex' });
+      bus.emit('dialogs.open.opportunity', { id:'OPP-000123' });
+      // unknown event to trigger warning
+      bus.emit('unknown.topic', { foo: 1 });
+      log('Simulated emits done.');
+    });
+
+    document.getElementById('btn-audit').addEventListener('click', ()=>{
+      const rep = audit();
+      log(rep);
+    });
+
+    document.getElementById('btn-detach').addEventListener('click', ()=>{
+      if (detach){ detach(); detach = null; log('Guard detached.'); }
+    });
+  </script>
+</body>
+</html>
