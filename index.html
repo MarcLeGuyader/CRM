@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CRM Modular App</title>
+  <link rel="stylesheet" href="./styles/main.css">
+</head>
+<body>
+  <header id="banner"></header>
+  <section id="filters"></section>
+  <main id="opportunities"></main>
+  <footer id="debug"></footer>
+
+  <!-- Main orchestrator -->
+  <script type="module">
+    import { bus } from './modules/event-bus/bus.js';
+    import { mountTopBanner } from './modules/top-banner/top-banner.js';
+    import { mountFilters } from './modules/filters/filters.js';
+    import { mountTable } from './modules/opportunities-table/opportunities-table.js';
+    import { mountDialogs } from './modules/dialogs/dialogs.js';
+    import { mountDebug } from './modules/debug-console/debug-console.js';
+    import { dataOrchestrator } from './modules/data-orchestrator/data-orchestrator.js';
+
+    // Mount modules
+    mountTopBanner(document.getElementById('banner'));
+    mountFilters(document.getElementById('filters'));
+    mountTable(document.getElementById('opportunities'));
+    mountDialogs(document.body);
+    mountDebug(document.getElementById('debug'));
+
+    // Initialize data orchestrator
+    dataOrchestrator.init();
+
+    console.log('[CRM] App initialized');
+  </script>
+</body>
+</html>
