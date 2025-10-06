@@ -2,9 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>CRM – Modular App</title>
   <link rel="stylesheet" href="./styles/main.css">
+  <!-- Optional (only needed for .xlsx import/export). Safe to remove if you use CSV only. -->
+  <!-- <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script> -->
 </head>
 <body>
   <div id="banner"></div>
@@ -13,98 +15,121 @@
   <div id="debug"></div>
 
   <script type="module">
-    // === 1) Event Bus (ESM) ===
+    // === 1) Event Bus
     import { bus } from './modules/event-bus/bus.js';
     window.bus = bus;
 
-    // === 2) Debug Console (IIFE to window.DebugConsole) ===
+    // === 2) Debug Console
     await import('./modules/debug-console/debug-console.js');
     const debugApi = window.DebugConsole?.mount
       ? window.DebugConsole.mount(document.getElementById('debug'))
       : { log: (...a)=>console.log('[debug fallback]', ...a), toggle:()=>{} };
 
-    // === 3) Top Banner (ESM) ===
+    // === 3) Top Banner
     try {
       const { mount: mountBanner } = await import('./modules/top-banner/top-banner.js');
       mountBanner(document.getElementById('banner'), window.bus);
       debugApi.log('[mounted] top-banner');
     } catch (e) {
-      console.error('[index] failed to mount banner', e);
+      console.error('[index] banner error', e);
       debugApi.log('[error] banner: ' + (e?.message||e));
     }
 
-    // === 4) Filters (ESM exports createFiltersModule) ===
+    // === 4) Filters
     try {
       const { createFiltersModule } = await import('./modules/filters/filters.js');
-      // (optional) filters CSS
       const link = document.createElement('link');
       link.rel = 'stylesheet';
       link.href = './modules/filters/filters.css';
       document.head.appendChild(link);
 
       const { mount: mountFilters } = createFiltersModule(window.bus);
-      mountFilters(document.getElementById('filters'), {
-        q: '', client: '', closeDate: {}, salesStep: ''
-      });
+      mountFilters(document.getElementById('filters'), { q:'', client:'', closeDate:{}, salesStep:'' });
       debugApi.log('[mounted] filters');
     } catch (e) {
       console.warn('[index] filters not mounted', e);
       debugApi.log('[warn] filters: ' + (e?.message||e));
     }
 
-    // === 5) Opportunities Table (attaches global window.OpportunityTable) ===
+    // === 5) Opportunities Table
+    let currentRows = []; // keep a local snapshot so Import/Export can read rows without orchestrator
     try {
-      // Load CSS first
+      // CSS
       const tableCss = document.createElement('link');
       tableCss.rel = 'stylesheet';
       tableCss.href = './modules/opportunity-table/opportunity-table.css';
       document.head.appendChild(tableCss);
 
-      // Load the script; it registers window.OpportunityTable
+      // JS (registers window.OpportunityTable)
       await import('./modules/opportunity-table/opportunity-table.js');
 
+      // Basic resolvers (use orchestrator if present, else fallbacks)
       const resolveCompanyName =
         (window.DATA?.orchestrator?.resolveCompanyName) ||
         ((id)=> ({C001:'Maello',C002:'Globex',C003:'Initech'}[id]));
-
       const resolveContactName =
         (window.DATA?.orchestrator?.resolveContactName) ||
         ((id)=> ({CT001:'Marc Le Guyader',CT002:'John Doe',CT003:'Alice Martin'}[id]));
 
-      const table = window.OpportunityTable?.mount(
+      window.OpportunityTable?.mount(
         document.getElementById('opps'),
         window.bus,
         { resolveCompanyName, resolveContactName, currency:'EUR' }
       );
 
-      // If the orchestrator hasn’t fired data.loaded yet, seed some demo rows:
-      let seeded = false;
-      const seed = () => {
-        if (seeded) return;
-        seeded = true;
-        bus.emit('data.loaded', {
-          rows: [
-            { id:'OPP-000001', name:'Migration CRM', salesStep:'Discovery', client:'Maello', owner:'Marc', companyId:'C001', contactId:'CT001', notes:'', nextAction:'Call', nextActionDate:'2025-10-10', closingDate:'', closingValue:12000 },
-            { id:'OPP-000002', name:'Integration',   salesStep:'Qualified', client:'Globex', owner:'Sven',  companyId:'C002', contactId:'CT002', notes:'NDA signed', nextAction:'POC', nextActionDate:'2025-10-15', closingDate:'', closingValue:22000 }
-          ]
-        });
-      };
+      // Track rows for import/export
+      bus.on('data.loaded', p => { if (p?.rows) currentRows = p.rows; });
+      bus.on('opps.updated', () => {
+        // if orchestrator is present, refresh snapshot
+        if (window.DATA?.orchestrator?.getState) {
+          const s = window.DATA.orchestrator.getState();
+          if (s?.rows) currentRows = s.rows;
+        }
+      });
 
-      // Give DATA.orchestrator a moment; if it doesn't emit, seed demo data
-      setTimeout(seed, 300);
+      // Seed demo rows if orchestrator doesn’t emit
+      let seeded = false;
+      setTimeout(() => {
+        if (!seeded && currentRows.length === 0) {
+          seeded = true;
+          const rows = [
+            { id:'OPP-000001', name:'Migration CRM', salesStep:'Discovery', client:'Maello', owner:'Marc',  companyId:'C001', contactId:'CT001', notes:'', nextAction:'Call', nextActionDate:'2025-10-10', closingDate:'', closingValue:12000 },
+            { id:'OPP-000002', name:'Integration',   salesStep:'Qualified', client:'Globex', owner:'Sven', companyId:'C002', contactId:'CT002', notes:'NDA signed', nextAction:'POC',  nextActionDate:'2025-10-15', closingDate:'', closingValue:22000 }
+          ];
+          currentRows = rows;
+          bus.emit('data.loaded', { rows });
+        }
+      }, 300);
 
       debugApi.log('[mounted] opportunity-table');
     } catch (e) {
-      console.error('[index] failed to mount opportunity-table', e);
+      console.error('[index] opportunity-table error', e);
       debugApi.log('[error] opportunity-table: ' + (e?.message||e));
     }
 
-    // === 6) Temporary glue: pipe useful events to debug ===
+    // === 6) Import/Export
+    try {
+      const { registerImportExport } = await import('./modules/import-export/index.js');
+
+      // Prefer orchestrator rows; fallback to our currentRows snapshot
+      const getRows = () => {
+        const s = window.DATA?.orchestrator?.getState?.();
+        return (s && Array.isArray(s.rows)) ? s.rows : (Array.isArray(currentRows) ? currentRows : []);
+      };
+
+      registerImportExport({ bus: window.bus, getRows });
+      debugApi.log('[mounted] import-export');
+    } catch (e) {
+      console.warn('[index] import-export not mounted', e);
+      debugApi.log('[warn] import-export: ' + (e?.message||e));
+    }
+
+    // === 7) Glue: log key events to debug
     [
       'ui.banner.filter','ui.banner.new','ui.banner.debug','ui.banner.reset',
       'ui.banner.upload','ui.banner.export','ui.banner.save',
       'filters.changed','filters.cleared','filters.toggled',
-      'data.loaded','opps.updated'
+      'data.loaded','opps.updated','data.import.started','data.import.report','data.export.done','data.export.error'
     ].forEach(t => bus.on(t, p => debugApi.log(t, p)));
   </script>
 </body>
