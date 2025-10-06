@@ -52,6 +52,8 @@
       '<div class="debug-console__hdr">',
         '<strong>Debug console</strong>',
         '<div class="debug-console__btns">',
+          // NEW: Copy button (left of Clear)
+          '<button class="debug-console__btn" data-act="copy" aria-label="Copy log to clipboard">Copy</button>',
           '<button class="debug-console__btn" data-act="clear" aria-label="Clear log">Clear</button>',
           '<button class="debug-console__btn" data-act="hide" aria-label="Hide debug console">Hide</button>',
         '</div>',
@@ -74,8 +76,40 @@
     function clear(){
       pre.textContent = '';
     }
+    async function copyAll(){
+      const btn = root.querySelector('[data-act="copy"]');
+      const text = pre.textContent || '';
+      try{
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(text);
+        } else {
+          // Fallback (execCommand)
+          const ta = document.createElement('textarea');
+          ta.value = text;
+          ta.style.position = 'fixed';
+          ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          ta.remove();
+        }
+        if (btn){
+          const old = btn.textContent;
+          btn.textContent = 'Copied!';
+          setTimeout(()=>{ btn.textContent = old; }, 1200);
+        }
+      }catch(err){
+        console.error('[debug-console] copy failed:', err);
+        if (btn){
+          const old = btn.textContent;
+          btn.textContent = 'Copy failed';
+          setTimeout(()=>{ btn.textContent = old; }, 1500);
+        }
+      }
+    }
 
     // wire buttons
+    root.querySelector('[data-act="copy"]').addEventListener('click', copyAll);
     root.querySelector('[data-act="clear"]').addEventListener('click', clear);
     root.querySelector('[data-act="hide"]').addEventListener('click', function(){ toggle(false); });
 
