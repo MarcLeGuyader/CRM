@@ -7,45 +7,58 @@
   <link rel="stylesheet" href="./styles/main.css">
 </head>
 <body>
-  <!-- Containers for each mounted module -->
   <div id="banner"></div>
   <div id="filters"></div>
-  <main id="table"></main>
   <div id="debug"></div>
 
   <script type="module">
-    // === 1. Load Event Bus ===
+    // --- 1) Load Event Bus (ES module) ---
     import { bus } from './modules/event-bus/bus.js';
-    window.bus = bus; // expose globally for debug
+    window.bus = bus;
 
-    // === 2. Import active modules ===
-    import { mount as mountBanner } from './modules/top-banner/top-banner.js';
-    import { mount as mountFilters } from './modules/filter-console/filter-console.js';
-    import { mount as mountDebug } from './modules/debug-console/debug-console.js';
+    // --- 2) Load Debug Console (IIFE exposes window.DebugConsole) ---
+    await import('./modules/debug-console/debug-console.js');
+    const debugApi = window.DebugConsole?.mount
+      ? window.DebugConsole.mount(document.getElementById('debug'))
+      : { log: (...a)=>console.log('[debug fallback]', ...a), toggle:()=>{} };
 
-    // === 3. Mount debug console ===
-    const debugApi = mountDebug(document.getElementById('debug'), window.bus);
-
-    // === 4. Mount banner ===
-    mountBanner(document.getElementById('banner'), window.bus, {
-      title: 'CRM',
-      logoSrc: './modules/top-banner/maello-logo.png'
-    });
-
-    // === 5. Mount filter console ===
-    mountFilters(document.getElementById('filters'), window.bus);
-
-    // === 6. Temporary glue: log banner & filter events to debug console ===
-    const topics = [
-      'ui.banner.filter','ui.banner.new','ui.banner.debug',
-      'ui.banner.reset','ui.banner.upload','ui.banner.export','ui.banner.save',
-      'filters.changed','filters.cleared','filters.toggled'
-    ];
-    for (const t of topics) {
-      bus.on(t, payload => debugApi.log(`[${t}]`, payload));
+    // --- 3) Mount Top Banner (ES module) ---
+    try {
+      const { mount: mountBanner } = await import('./modules/top-banner/top-banner.js');
+      mountBanner(document.getElementById('banner'), window.bus);
+      debugApi.log('[mounted] top-banner');
+    } catch (e) {
+      console.error('[index] failed to mount banner', e);
+      debugApi.log('[error] failed to mount banner: ' + (e?.message||e));
     }
 
-    console.log('[CRM] App started with Banner + Filters + Debug');
+    // --- 4) Mount Filters (ES module exports createFiltersModule) ---
+    try {
+      const { createFiltersModule } = await import('./modules/filters/filters.js');
+      // Optionally load its CSS (remove if you don’t want it):
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = './modules/filters/filters.css';
+      document.head.appendChild(link);
+
+      const { mount: mountFilters } = createFiltersModule(window.bus);
+      mountFilters(document.getElementById('filters'), {
+        q: '', client: '', closeDate: {}, salesStep: ''
+      });
+      debugApi.log('[mounted] filters');
+    } catch (e) {
+      console.warn('[index] filters not mounted (optional)', e);
+      debugApi.log('[warn] filters not mounted: ' + (e?.message||e));
+    }
+
+    // --- 5) Temporary glue: echo banner + filters events to debug ---
+    [
+      'ui.banner.filter','ui.banner.new','ui.banner.debug','ui.banner.reset',
+      'ui.banner.upload','ui.banner.export','ui.banner.save',
+      'filters.changed','filters.cleared','filters.toggled'
+    ].forEach(t => bus.on(t, p => debugApi.log(t, p)));
+
+    console.log('[CRM] started (bus + debug + banner + filters)');
   </script>
 </body>
 </html>
