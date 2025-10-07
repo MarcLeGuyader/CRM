@@ -239,8 +239,8 @@ main#opps {
 /* Notes (7) & Next action (8) — largeur 3× plus grande + multi-ligne */
 .opps-table th:nth-child(7),
 .opps-table td:nth-child(7) {
-  width: 150ch;
-  max-width: 150ch;
+  width: 75ch;
+  max-width: 75ch;
   white-space: normal;
   word-break: break-word;
   line-height: 1.4;
@@ -248,8 +248,8 @@ main#opps {
 
 .opps-table th:nth-child(8),
 .opps-table td:nth-child(8) {
-  width: 120ch;
-  max-width: 120ch;
+  width: 50ch;
+  max-width: 50ch;
   white-space: normal;
   word-break: break-word;
   line-height: 1.4;
