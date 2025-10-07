@@ -236,24 +236,24 @@ main#opps {
 
 /* === Colonnes spécifiques === */
 
-/* Notes (7) & Next action (8) — largeur fixe + multi-ligne */
+/* Notes (7) & Next action (8) — largeur 3× plus grande + multi-ligne */
 .opps-table th:nth-child(7),
 .opps-table td:nth-child(7) {
-  width: 50ch;
-  max-width: 50ch;
-  white-space: normal;
-  word-break: break-word;
-  line-height: 1.4;
-}
-.opps-table th:nth-child(8),
-.opps-table td:nth-child(8) {
-  width: 40ch;
-  max-width: 40ch;
+  width: 150ch;
+  max-width: 150ch;
   white-space: normal;
   word-break: break-word;
   line-height: 1.4;
 }
 
+.opps-table th:nth-child(8),
+.opps-table td:nth-child(8) {
+  width: 120ch;
+  max-width: 120ch;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.4;
+}
 /* Dates (9–10) compactes */
 .opps-table th:nth-child(9),
 .opps-table th:nth-child(10),
