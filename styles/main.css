@@ -196,3 +196,23 @@ main#opps {
 .crm-dialog .danger {
   color: #a32020;
 }
+
+
+/* Default (read-only): link appearance */
+.opps-table .link {
+  text-decoration: none;
+  border-bottom: 1px dotted transparent;
+  cursor: pointer;
+}
+.opps-table .link:hover {
+  border-bottom-color: currentColor;
+}
+
+/* Inline edit ON: disable link look and clicks */
+.opps-wrap.inline .link {
+  text-decoration: none !important;
+  border-bottom: none !important;
+  color: inherit !important;
+  cursor: default !important;
+  pointer-events: none; /* disable click */
+}
