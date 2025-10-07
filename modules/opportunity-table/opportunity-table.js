@@ -1,20 +1,15 @@
-/*! Opportunities Table Module (CRM canonical version)
+/*! Opportunities Table Module (CRM canonical version, patched for inline edit)
  *  - Fully aligned with CRM field conventions
+ *  - Supports inline editing mode (toggled via ui.banner.inlineEdit.* events)
  *  - Uses strict ID formats:
  *      Company.ID  → CMPY-######
  *      Contact.ID  → CON-######
  *      Opportunity.ID → OPP-######
  *  - Uses dynamic client list (from orchestrator.clientList)
- *  - Displays Company + Contact with interactive links
+ *  - Displays Company + Contact with interactive links (disabled in inline mode)
  *  - Emits dialog open events via bus
- *
- *  API:
- *    OpportunityTable.mount(container, bus, options?)
- *      - options:
- *          currency?: string ('EUR' default)
- *          resolveCompanyName?: (id:string)=>string|undefined
- *          resolveContactName?: (id:string)=>string|undefined
  */
+
 (function(global){
   function fmtMoney(v, currency){
     if (v == null || v === '' || isNaN(Number(v))) return '';
@@ -29,7 +24,6 @@
     cmpy: /^CMPY-\d{6}$/,
     cont: /^CON-\d{6}$/
   };
-
   function defaultResolver(){ return undefined; }
 
   function mount(container, bus, options){
@@ -40,7 +34,8 @@
       resolveCompanyName: opts.resolveCompanyName || defaultResolver,
       resolveContactName: opts.resolveContactName || defaultResolver,
       currency: opts.currency || 'EUR',
-      clientList: []
+      clientList: [],
+      isInlineEdit: false
     };
 
     // root
@@ -75,23 +70,15 @@
     // --------------- Filtering ----------------
     function passFilters(row){
       const f = state.filters || {};
-
-      // text query
       if (f.q){
         const hay = `${row['Opportunity.Name']||row.name||''} ${row['Opportunity.Client']||row.client||''} ${row['Opportunity.Owner']||row.owner||''} ${row['Opportunity.Notes']||row.notes||''} ${row['Opportunity.NextAction']||row.nextAction||''}`.toLowerCase();
         if (!hay.includes(String(f.q).toLowerCase())) return false;
       }
-
-      // sales step
       if (f.salesStep && (row['Opportunity.SalesStep']||row.salesStep) !== f.salesStep) return false;
-
-      // client name (string)
       if (f.client){
         const client = (row['Opportunity.Client']||row.client||'').toLowerCase();
         if (!client.includes(f.client.toLowerCase())) return false;
       }
-
-      // close date filter
       if (f.closeDate){
         const d = row['Opportunity.ClosingDate'] || row.closingDate;
         if (d){
@@ -100,7 +87,6 @@
           if (f.closeDate.to && new Date(f.closeDate.to) < date) return false;
         }
       }
-
       return true;
     }
 
@@ -121,10 +107,30 @@
         const client = r['Opportunity.Client'] || r.client || '';
         const isClient = state.clientList.includes(companyId);
 
+        if (state.isInlineEdit){
+          // --- Inline editable version ---
+          return `
+          <tr data-id="${escapeHtml(id)}" class="inline">
+            <td class="action" title="Inline edit mode">✎</td>
+            <td><input type="text" value="${escapeHtml(r.name||'')}" data-field="name"/></td>
+            <td><input type="text" value="${escapeHtml(r.salesStep||'')}" data-field="salesStep"/></td>
+            <td><input type="text" value="${escapeHtml(client)}" data-field="client"/></td>
+            <td><input type="text" value="${escapeHtml(r.owner||'')}" data-field="owner"/></td>
+            <td><input type="text" value="${escapeHtml(companyName)}" data-field="companyName" disabled/></td>
+            <td><input type="text" value="${escapeHtml(contactName)}" data-field="contactName" disabled/></td>
+            <td><input type="text" value="${escapeHtml(r.notes||'')}" data-field="notes"/></td>
+            <td><input type="text" value="${escapeHtml(r.nextAction||'')}" data-field="nextAction"/></td>
+            <td><input type="date" value="${escapeHtml(iso(r.nextActionDate))}" data-field="nextActionDate"/></td>
+            <td><input type="date" value="${escapeHtml(iso(r.closingDate))}" data-field="closingDate"/></td>
+            <td><input type="number" step="0.01" value="${escapeHtml(r.closingValue||'')}" data-field="closingValue"/></td>
+          </tr>`;
+        }
+
+        // --- Normal read-only version ---
         return `
           <tr data-id="${escapeHtml(id)}">
             <td class="action" title="Edit">✏️</td>
-            <td>${escapeHtml(r['Opportunity.Name']||r.name||'')}</td>
+            <td><span class="link" data-act="opportunity" title="Open opportunity">${escapeHtml(r['Opportunity.Name']||r.name||'')}</span></td>
             <td>${escapeHtml(r['Opportunity.SalesStep']||r.salesStep||'')}</td>
             <td>${escapeHtml(client)}</td>
             <td>${escapeHtml(r['Opportunity.Owner']||r.owner||'')}</td>
@@ -152,7 +158,14 @@
       const id = tr.getAttribute('data-id');
       const act = e.target.getAttribute && e.target.getAttribute('data-act');
 
+      // disable all interactions in inline edit mode
+      if (state.isInlineEdit) return;
+
       if (td.classList.contains('action')){
+        bus.emit('dialogs.open.opportunity', { id });
+        return;
+      }
+      if (act === 'opportunity'){
         bus.emit('dialogs.open.opportunity', { id });
         return;
       }
@@ -176,23 +189,26 @@
     const off = [];
     off.push(bus.on('filters.changed', payload => { state.filters = payload || null; render(); }));
     off.push(bus.on('filters.cleared', () => { state.filters = null; render(); }));
-    
-off.push(bus.on('opps.updated', () => {
-  const s = window.DATA?.orchestrator?.getState?.();
-  if (s?.rows && Array.isArray(s.rows)) {
-    state.rows = s.rows;   // on récupère les lignes depuis l’orchestrateur
-  }
-  render();
-}));
-    
+
+    off.push(bus.on('opps.updated', () => {
+      const s = window.DATA?.orchestrator?.getState?.();
+      if (s?.rows && Array.isArray(s.rows)) {
+        state.rows = s.rows;
+      }
+      render();
+    }));
+
     off.push(bus.on('data.loaded', payload => { 
       if (!payload) return;
-      // rows
       state.rows = Array.isArray(payload.rows) ? payload.rows : [];
-      // client list (from orchestrator)
       if (Array.isArray(payload.clientList)) state.clientList = payload.clientList;
       render();
     }));
+
+    // --- Inline Edit mode events ---
+    off.push(bus.on('ui.banner.inlineEdit.on',  () => { state.isInlineEdit = true;  render(); }));
+    off.push(bus.on('ui.banner.inlineEdit.off', () => { state.isInlineEdit = false; render(); }));
+    off.push(bus.on('ui.banner.inlineEdit.toggled', ({on}) => { state.isInlineEdit = (on ?? !state.isInlineEdit); render(); }));
 
     // --------------- Public API ----------------
     return {
