@@ -1,10 +1,11 @@
-/*! Opportunities Table Module (CRM canonical version, inline-edit ready)
- *  - Fully aligned with CRM field conventions
- *  - Inline editing toggled by: ui.banner.inlineEdit.on / .off / .toggle
- *  - Strict ID formats (CMPY-######, CON-######, OPP-######)
- *  - Dynamic client list badges
- *  - OPEN OPPORTUNITY DIALOG BY CLICKING NAME (read-only mode only)
- *  - Pencil icon column removed (always)
+/*! Opportunities Table Module (CRM canonical, inline-edit + verbose trace)
+ *  - Inline editing is controlled ONLY by: ui.opptable.inline.toggle  (payload: { on: boolean })
+ *  - Read-only: Opportunity name opens dialog; Company/Contact open their dialogs
+ *  - Inline ON: no navigation, links neutralized, fields editable (company/contact readonly here)
+ *  - Strict IDs: OPP-######, CMPY-######, CON-######
+ *  - Pencil icon column: removed
+ *  - Verbose tracing via bus event: opptable.trace
+ *  - CSS dump: prints computed styles + matching CSS rules for links each render
  */
 
 (function(global){
@@ -14,28 +15,33 @@
     catch{ return String(v); }
   }
   function iso(d){ return d || ''; }
-  function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+  function esc(s){ return String(s||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 
   const RX = {
     opp:  /^OPP-\d{6}$/,
     cmpy: /^CMPY-\d{6}$/,
     cont: /^CON-\d{6}$/
   };
-  function defaultResolver(){ return undefined; }
+  const noopResolver = () => undefined;
 
   function mount(container, bus, options){
     const opts = options || {};
     const state = {
       rows: [],
       filters: null,
-      resolveCompanyName: opts.resolveCompanyName || defaultResolver,
-      resolveContactName: opts.resolveContactName || defaultResolver,
+      resolveCompanyName: opts.resolveCompanyName || noopResolver,
+      resolveContactName: opts.resolveContactName || noopResolver,
       currency: opts.currency || 'EUR',
       clientList: [],
       isInlineEdit: false
     };
 
-    // Root/table skeleton (NO pencil column)
+    // ---- trace helper (single channel) ----
+    const trace = (topic, payload) => {
+      try { bus.emit('opptable.trace', { topic, ...payload }); } catch {}
+    };
+
+    // ---- skeleton (no pencil column)
     const wrap = document.createElement('div');
     wrap.className = 'opps-wrap';
     wrap.innerHTML = `
@@ -62,22 +68,26 @@
     container.appendChild(wrap);
 
     const tbody = wrap.querySelector('tbody');
+    trace('mount.done', { inline: state.isInlineEdit });
 
     // -------- Filters --------
     function passFilters(row){
       const f = state.filters || {};
+      const name  = row['Opportunity.Name'] || row.name || '';
+      const client= row['Opportunity.Client'] || row.client || '';
+      const owner = row['Opportunity.Owner'] || row.owner || '';
+      const notes = row['Opportunity.Notes'] || row.notes || '';
+      const nextA = row['Opportunity.NextAction'] || row.nextAction || '';
 
       if (f.q){
-        const hay = `${row['Opportunity.Name']||row.name||''} ${row['Opportunity.Client']||row.client||''} ${row['Opportunity.Owner']||row.owner||''} ${row['Opportunity.Notes']||row.notes||''} ${row['Opportunity.NextAction']||row.nextAction||''}`.toLowerCase();
+        const hay = `${name} ${client} ${owner} ${notes} ${nextA}`.toLowerCase();
         if (!hay.includes(String(f.q).toLowerCase())) return false;
       }
       if (f.salesStep && (row['Opportunity.SalesStep']||row.salesStep) !== f.salesStep) return false;
-
       if (f.client){
-        const client = (row['Opportunity.Client']||row.client||'').toLowerCase();
-        if (!client.includes(f.client.toLowerCase())) return false;
+        const cl = (client||'').toLowerCase();
+        if (!cl.includes(f.client.toLowerCase())) return false;
       }
-
       if (f.closeDate){
         const d = row['Opportunity.ClosingDate'] || row.closingDate;
         if (d){
@@ -86,16 +96,62 @@
           if (f.closeDate.to && new Date(f.closeDate.to) < date) return false;
         }
       }
-
       return true;
+    }
+
+    // -------- CSS dump helpers --------
+    function getComputedLinkInfo() {
+      const sample = tbody.querySelector('.link');
+      if (!sample) return { present:false };
+      const cs = getComputedStyle(sample);
+      return {
+        present: true,
+        textDecoration: cs.textDecoration,
+        borderBottomStyle: cs.borderBottomStyle,
+        borderBottomColor: cs.borderBottomColor,
+        color: cs.color,
+        cursor: cs.cursor,
+        pointerEvents: cs.pointerEvents
+      };
+    }
+    function collectMatchingRules() {
+      const targets = ['.opps-table .link', '.opps-wrap.inline .link'];
+      const res = [];
+      for (const sheet of Array.from(document.styleSheets || [])) {
+        let rules;
+        try { rules = sheet.cssRules; } catch { continue; } // CORS-protected
+        if (!rules) continue;
+        for (const r of Array.from(rules)) {
+          if (!r || !r.selectorText) continue;
+          if (targets.some(sel => String(r.selectorText).includes(sel))) {
+            res.push({ selector: r.selectorText, cssText: r.cssText });
+          }
+        }
+      }
+      return res;
+    }
+    function dumpCSS(reason){
+      const computed = getComputedLinkInfo();
+      const rules = collectMatchingRules();
+      trace('css.dump', {
+        reason,
+        inlineClass: wrap.classList.contains('inline'),
+        computed,
+        matchedRulesCount: rules.length,
+        matchedRules: rules
+      });
     }
 
     // -------- Render --------
     function render(){
       const rows = (state.rows || []).filter(passFilters);
+      trace('render.start', { inline: state.isInlineEdit, total: (state.rows||[]).length, filtered: rows.length });
 
       if (!rows.length){
         tbody.innerHTML = `<tr><td class="opps-empty" colspan="11">No opportunities match your filter.</td></tr>`;
+        wrap.classList.toggle('inline', !!state.isInlineEdit);
+        dumpCSS('after-empty');
+        trace('render.done', { inlineClass: wrap.classList.contains('inline') });
         return;
       }
 
@@ -118,102 +174,119 @@
         const isClient    = state.clientList.includes(companyId);
 
         if (state.isInlineEdit){
-          // Inline editable row: NO LINKS, inputs for most fields
+          // Inline: no navigation, editable inputs (company/contact kept disabled here)
           return `
-            <tr data-id="${escapeHtml(id)}" class="inline">
-              <td><input type="text" value="${escapeHtml(name)}" data-field="name"/></td>
-              <td><input type="text" value="${escapeHtml(step)}" data-field="salesStep"/></td>
-              <td><input type="text" value="${escapeHtml(client)}" data-field="client"/></td>
-              <td><input type="text" value="${escapeHtml(owner)}" data-field="owner"/></td>
-              <td><input type="text" value="${escapeHtml(companyName)}" data-field="companyName" disabled/></td>
-              <td><input type="text" value="${escapeHtml(contactName)}" data-field="contactName" disabled/></td>
-              <td><input type="text" value="${escapeHtml(notes)}" data-field="notes"/></td>
-              <td><input type="text" value="${escapeHtml(nextAct)}" data-field="nextAction"/></td>
-              <td><input type="date" value="${escapeHtml(iso(nextActDt))}" data-field="nextActionDate"/></td>
-              <td><input type="date" value="${escapeHtml(iso(closingDt))}" data-field="closingDate"/></td>
-              <td><input type="number" step="0.01" value="${escapeHtml(closingVal||'')}" data-field="closingValue"/></td>
+            <tr data-id="${esc(id)}" class="inline">
+              <td><input type="text" value="${esc(name)}" data-field="name" /></td>
+              <td><input type="text" value="${esc(step)}" data-field="salesStep" /></td>
+              <td><input type="text" value="${esc(client)}" data-field="client" /></td>
+              <td><input type="text" value="${esc(owner)}" data-field="owner" /></td>
+              <td><input type="text" value="${esc(companyName)}" data-field="companyName" disabled /></td>
+              <td><input type="text" value="${esc(contactName)}" data-field="contactName" disabled /></td>
+              <td><input type="text" value="${esc(notes)}" data-field="notes" /></td>
+              <td><input type="text" value="${esc(nextAct)}" data-field="nextAction" /></td>
+              <td><input type="date" value="${esc(iso(nextActDt))}" data-field="nextActionDate" /></td>
+              <td><input type="date" value="${esc(iso(closingDt))}" data-field="closingDate" /></td>
+              <td><input type="number" step="0.01" value="${esc(closingVal||'')}" data-field="closingValue" /></td>
             </tr>
           `;
         }
 
-        // Read-only row: name is clickable to open Opportunity dialog; company/contact are clickable
+        // Read-only: name/company/contact are links
         return `
-          <tr data-id="${escapeHtml(id)}">
-            <td><span class="link" data-act="opportunity" title="Open opportunity">${escapeHtml(name)}</span></td>
-            <td>${escapeHtml(step)}</td>
-            <td>${escapeHtml(client)}</td>
-            <td>${escapeHtml(owner)}</td>
+          <tr data-id="${esc(id)}">
+            <td><span class="link" data-act="opportunity" title="Open opportunity">${esc(name)}</span></td>
+            <td>${esc(step)}</td>
+            <td>${esc(client)}</td>
+            <td>${esc(owner)}</td>
             <td>
-              <span class="link" data-act="company" title="Open company">${escapeHtml(companyName)}</span>
+              <span class="link" data-act="company" title="Open company">${esc(companyName)}</span>
               ${isClient ? '<span class="mini" style="color:#16a34a;font-weight:600;margin-left:6px;">Client</span>' : ''}
             </td>
-            <td><span class="link" data-act="contact" title="Open contact">${escapeHtml(contactName)}</span></td>
-            <td>${escapeHtml(notes)}</td>
-            <td>${escapeHtml(nextAct)}</td>
-            <td>${escapeHtml(iso(nextActDt))}</td>
-            <td>${escapeHtml(iso(closingDt))}</td>
-            <td>${escapeHtml(fmtMoney(closingVal, state.currency))}</td>
+            <td><span class="link" data-act="contact" title="Open contact">${esc(contactName)}</span></td>
+            <td>${esc(notes)}</td>
+            <td>${esc(nextAct)}</td>
+            <td>${esc(iso(nextActDt))}</td>
+            <td>${esc(iso(closingDt))}</td>
+            <td>${esc(fmtMoney(closingVal, state.currency))}</td>
           </tr>
         `;
       }).join('');
 
-			// toggle inline CSS class on wrapper to adjust link styling
-wrap.classList.toggle('inline', !!state.isInlineEdit);
+      // CSS hook for disabling links in inline mode
+      wrap.classList.toggle('inline', !!state.isInlineEdit);
+
+      dumpCSS('after-render');
+      trace('render.done', { inlineClass: wrap.classList.contains('inline') });
     }
 
     // -------- Row click behavior --------
     tbody.addEventListener('click', (e)=>{
       const tr = e.target.closest('tr');
       if (!tr) return;
+      if (state.isInlineEdit) { trace('click.blocked_inline'); return; } // navigation disabled in inline
+
       const id  = tr.getAttribute('data-id');
       const act = e.target.getAttribute && e.target.getAttribute('data-act');
 
-      // In inline mode, all navigation is disabled
-      if (state.isInlineEdit) return;
-
       if (act === 'opportunity'){
+        trace('open.dialog.opportunity', { id });
         bus.emit('dialogs.open.opportunity', { id });
         return;
       }
       if (act === 'company'){
         const row = (state.rows || []).find(x => (x.id||x['Opportunity.ID']) === id);
         const companyId = row && (row.companyId || row['Opportunity.CompanyID']);
-        if (companyId && RX.cmpy.test(companyId)) bus.emit('dialogs.open.company', { companyId });
+        if (companyId && RX.cmpy.test(companyId)) {
+          trace('open.dialog.company', { companyId });
+          bus.emit('dialogs.open.company', { companyId });
+        }
         return;
       }
       if (act === 'contact'){
         const row = (state.rows || []).find(x => (x.id||x['Opportunity.ID']) === id);
         const contactId = row && (row.contactId || row['Opportunity.ContactID']);
-        if (contactId && RX.cont.test(contactId)) bus.emit('dialogs.open.contact', { contactId });
+        if (contactId && RX.cont.test(contactId)) {
+          trace('open.dialog.contact', { contactId });
+          bus.emit('dialogs.open.contact', { contactId });
+        }
         return;
       }
     });
 
     // -------- Listeners --------
     const off = [];
-    off.push(bus.on('filters.changed', payload => { state.filters = payload || null; render(); }));
-    off.push(bus.on('filters.cleared', () => { state.filters = null; render(); }));
+    off.push(bus.on('filters.changed', payload => { state.filters = payload || null; trace('filters.changed', { payload }); render(); }));
+    off.push(bus.on('filters.cleared', () => { state.filters = null; trace('filters.cleared'); render(); }));
 
     off.push(bus.on('opps.updated', () => {
       const s = window.DATA?.orchestrator?.getState?.();
       if (s?.rows && Array.isArray(s.rows)) state.rows = s.rows;
       if (Array.isArray(s?.clientList)) state.clientList = s.clientList;
+      trace('opps.updated', { rows: state.rows.length, clientList: state.clientList.length });
       render();
     }));
 
-    off.push(bus.on('data.loaded', payload => { 
+    off.push(bus.on('data.loaded', payload => {
       if (!payload) return;
       state.rows = Array.isArray(payload.rows) ? payload.rows : [];
       if (Array.isArray(payload.clientList)) state.clientList = payload.clientList;
+      trace('data.loaded', { rows: state.rows.length, clientList: state.clientList.length });
       render();
     }));
 
-    // Inline Edit mode controls — LISTEN FOR EXACT EVENT NAMES
-    off.push(bus.on('ui.banner.inlineEdit.on',     () => { state.isInlineEdit = true;  render(); }));
-    off.push(bus.on('ui.banner.inlineEdit.off',    () => { state.isInlineEdit = false; render(); }));
-    off.push(bus.on('ui.banner.inlineEdit.toggle', () => { state.isInlineEdit = !state.isInlineEdit; render(); }));
+    // ---- SINGLE EVENT to control inline mode ----
+    off.push(bus.on('ui.opptable.inline.toggle', ({ on }) => {
+      const prev = state.isInlineEdit;
+      state.isInlineEdit = !!on;
+      trace('inline.toggle', { prev, next: state.isInlineEdit });
+      render();
+    }));
 
-    // -------- Public API --------
+    // Optional external trigger to re-dump CSS (e.g., from console: bus.emit('ui.opptable.dumpCSS'))
+    off.push(bus.on('ui.opptable.dumpCSS', () => dumpCSS('manual')));
+
+    // Public API
     return {
       render: (rows, filters) => { state.rows = rows || []; state.filters = filters || null; render(); },
       destroy: () => off.forEach(fn => { try{ fn(); }catch{} })
