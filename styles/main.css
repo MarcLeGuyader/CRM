@@ -183,3 +183,16 @@ main#opps {
   opacity: .6;
   cursor: not-allowed;
 }
+
+/* ===== Company dialog subtitle & title color ===== */
+.crm-dialog .subtitle {
+  font-size: 12px;
+  color: #666;
+  margin-top: 2px;
+}
+.crm-dialog .subtitle .muted {
+  color: #7a7a7a;
+}
+.crm-dialog .danger {
+  color: #a32020;
+}
