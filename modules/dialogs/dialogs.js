@@ -56,13 +56,22 @@ export function mountDialogs(deps) {
 
     host.appendChild(dlg);
 
-    // Safari/iPad fallback for <dialog>.showModal()
+    // ✅ Safe showModal fallback — avoid double execution on iPad/Safari
     try {
-      if (typeof dlg.showModal === 'function') dlg.showModal();
-      else dlg.setAttribute('open', '');
+      if (typeof dlg.showModal === 'function') {
+        try {
+          dlg.showModal();
+        } catch (err) {
+          // Fallback if showModal fails (Safari / iPadOS)
+          dlg.setAttribute('open', '');
+          logError(err, 'showModal failed, used fallback');
+        }
+      } else {
+        dlg.setAttribute('open', '');
+      }
     } catch (e) {
       dlg.setAttribute('open', '');
-      logError(e, 'showModal fallback');
+      logError(e, 'showModal wrapper');
     }
 
     stack.push({ type, dialog: dlg });
@@ -73,7 +82,7 @@ export function mountDialogs(deps) {
     const top = stack.pop();
     if (!top) return;
     try { top.dialog.close(); } catch {}
-    top.dialog.remove();
+    try { top.dialog.remove(); } catch {}
     bus.emit('dialogs.close', { target: top.type });
   }
 
