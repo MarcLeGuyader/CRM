@@ -1,11 +1,12 @@
 // ./modules/data-orchestrator/data-orchestrator.js
-// Data Orchestrator (Module 07) — v4 strict formats
+// Data Orchestrator (Module 07) — v5 strict formats + vocab support (Point 1)
 // - Source de vérité en mémoire
 // - Persistance localStorage
 // - Validation centralisée
 // - Génération d'ID OPP-######
 // - Résolution des noms (Company/Contact)
 // - SalesStepList dynamique + Companies.IsClient → clientList
+// - Vocabs: leadSources, companyTypes, companySegments, owners
 // - IDs STRICTS:
 //     Company.ID     : CMPY-######
 //     Contact.ID     : CON-######
@@ -16,13 +17,14 @@ import { setAllowedSalesSteps } from '../validation-rules/validation-rules.js';
   const BUS = (typeof window !== 'undefined' && window.bus) ? window.bus : null;
   if (!BUS) { console.error('[data-orchestrator] Event bus not found on window.bus'); return; }
 
-  // --- Storage (v4 pour ne pas mélanger avec anciens formats) ---
+  // --- Storage (v5 pour ne pas mélanger avec anciens formats) ---
   const STORAGE = {
-    rows:       'crm_rows_v4',
-    companies:  'crm_companies_v4',
-    contacts:   'crm_contacts_v4',
-    salesSteps: 'crm_sales_steps_v4',
-    clients:    'crm_clients_v4'
+    rows:       'crm_rows_v5',
+    companies:  'crm_companies_v5',
+    contacts:   'crm_contacts_v5',
+    salesSteps: 'crm_sales_steps_v5',
+    clients:    'crm_clients_v5',
+    vocab:      'crm_vocab_v1'
   };
 
   // --- Regex strictes pour les IDs ---
@@ -37,12 +39,18 @@ import { setAllowedSalesSteps } from '../validation-rules/validation-rules.js';
   // --- État ---
   const state = {
     rows: [],                 // Array<Opportunity>
-    compIndex: {},            // CMPY-xxxxxx -> { id, name, isClient? }
+    compIndex: {},            // CMPY-xxxxxx -> { id, name, isClient?, ... }
     contIndex: {},            // CON-xxxxxx  -> { id, displayName, firstName, lastName, companyId, email, phone }
     companiesByName: {},      // name -> CMPY-xxxxxx
     contactsByName: {},       // displayName -> CON-xxxxxx
     salesSteps: [],
-    clientList: []            // [CMPY-xxxxxx,...]
+    clientList: [],           // [CMPY-xxxxxx,...]
+    vocab: {                  // Point 1
+      leadSources: [],        // from opportunities
+      companyTypes: [],       // from companies
+      companySegments: [],    // from companies.mainSegment
+      owners: []              // from opportunities.owner
+    }
   };
 
   // ---------- Utils ----------
@@ -50,6 +58,9 @@ import { setAllowedSalesSteps } from '../validation-rules/validation-rules.js';
   function saveLS(key, val){ try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){ console.warn('[data-orchestrator] persist error', key, e); } }
   function isIsoDate(s){ return typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s); }
   function cmpDate(a,b){ if (!isIsoDate(a) || !isIsoDate(b)) return 0; return a<b?-1:a>b?1:0; }
+  const toStr = v => (v==null ? '' : String(v));
+  const trim = s => toStr(s).trim();
+  const norm = s => trim(s);
 
   function nextOppId(rows){
     let max = 0;
@@ -194,6 +205,79 @@ import { setAllowedSalesSteps } from '../validation-rules/validation-rules.js';
     return { ok:true, id: row.id };
   }
 
+  // ---------- Vocabs helpers (Point 1) ----------
+  function setVocabFromArrays(v){
+    const safe = (arr) => Array.from(new Set((Array.isArray(arr)?arr:[]).map(norm).filter(Boolean))).sort((a,b)=>a.localeCompare(b));
+    state.vocab = {
+      leadSources:    safe(v.leadSources),
+      companyTypes:   safe(v.companyTypes),
+      companySegments:safe(v.companySegments),
+      owners:         safe(v.owners)
+    };
+  }
+  function buildVocabFromData(rows, companies){
+    const sLead = new Set();
+    const sOwn  = new Set();
+    const sType = new Set();
+    const sSeg  = new Set();
+
+    (Array.isArray(rows)?rows:[]).forEach(r => {
+      const lead = norm(r.leadSource ?? r['Opportunity.LeadSource'] ?? '');
+      if (lead) sLead.add(lead);
+      const owner = norm(r.owner ?? r['Opportunity.Owner'] ?? '');
+      if (owner) sOwn.add(owner);
+    });
+    (Array.isArray(companies)?companies:[]).forEach(c => {
+      const type = norm(c.type ?? c.Type ?? c['Companies.Type'] ?? '');
+      if (type) sType.add(type);
+      const seg  = norm(c.mainSegment ?? c.MainSegment ?? c['Companies.MainSegment'] ?? '');
+      if (seg) sSeg.add(seg);
+    });
+
+    return {
+      leadSources: Array.from(sLead).sort((a,b)=>a.localeCompare(b)),
+      companyTypes: Array.from(sType).sort((a,b)=>a.localeCompare(b)),
+      companySegments: Array.from(sSeg).sort((a,b)=>a.localeCompare(b)),
+      owners: Array.from(sOwn).sort((a,b)=>a.localeCompare(b))
+    };
+  }
+  function getVocab(){
+    // retourner des copies
+    const v = state.vocab || { leadSources:[], companyTypes:[], companySegments:[], owners:[] };
+    return {
+      leadSources: v.leadSources.slice(),
+      companyTypes: v.companyTypes.slice(),
+      companySegments: v.companySegments.slice(),
+      owners: v.owners.slice()
+    };
+  }
+  function addToVocab(kind, value){
+    const allowed = ['leadSources','companyTypes','companySegments','owners'];
+    if (!allowed.includes(kind)) return { ok:false, error:'bad_kind' };
+    const v = norm(value);
+    if (!v) return { ok:false, error:'empty' };
+    const arr = state.vocab[kind] || (state.vocab[kind]=[]);
+    if (!arr.includes(v)){
+      arr.push(v);
+      arr.sort((a,b)=>a.localeCompare(b));
+      persist();
+      emitVocabReady('addToVocab');
+    }
+    return { ok:true };
+  }
+  function emitVocabReady(reason){
+    const v = state.vocab || {};
+    BUS.emit('data.vocab.ready', {
+      reason,
+      counts: {
+        leadSources: (v.leadSources||[]).length,
+        companyTypes: (v.companyTypes||[]).length,
+        companySegments: (v.companySegments||[]).length,
+        owners: (v.owners||[]).length
+      }
+    });
+  }
+
   // ---------- Persistence ----------
   function persist(){
     saveLS(STORAGE.rows, state.rows);
@@ -201,6 +285,7 @@ import { setAllowedSalesSteps } from '../validation-rules/validation-rules.js';
     saveLS(STORAGE.contacts, Object.values(state.contIndex));
     saveLS(STORAGE.salesSteps, state.salesSteps);
     saveLS(STORAGE.clients, state.clientList);
+    saveLS(STORAGE.vocab, state.vocab);
   }
   function reset(){
     Object.values(STORAGE).forEach(k => localStorage.removeItem(k));
@@ -211,6 +296,7 @@ import { setAllowedSalesSteps } from '../validation-rules/validation-rules.js';
     state.clientList = [];
     state.companiesByName = {};
     state.contactsByName = {};
+    state.vocab = { leadSources:[], companyTypes:[], companySegments:[], owners:[] };
   }
 
   function getState(){
@@ -228,9 +314,10 @@ import { setAllowedSalesSteps } from '../validation-rules/validation-rules.js';
   // {
   //   ok: true,
   //   rows: Opportunity[],
-  //   companies: Company[],   // { id:'CMPY-######', name, isClient? }
+  //   companies: Company[],   // { id:'CMPY-######', name, isClient?, ... }
   //   contacts: Contact[],    // { id:'CON-######', displayName, firstName, lastName, companyId:'CMPY-######', ... }
-  //   salesSteps: string[]
+  //   salesSteps: string[],
+  //   vocab?: { leadSources:[], companyTypes:[], companySegments:[], owners:[] } // optionnel
   // }
   function mergeImport(payload){
     if (!payload || payload.ok !== true){
@@ -240,26 +327,26 @@ import { setAllowedSalesSteps } from '../validation-rules/validation-rules.js';
     const inRows = Array.isArray(payload.rows) ? payload.rows : [];
     const inCompanies = Array.isArray(payload.companies) ? payload.companies : [];
     const inContacts = Array.isArray(payload.contacts) ? payload.contacts : [];
-    const inSalesSteps = Array.isArray(payload.salesSteps) ? payload.salesSteps.filter(Boolean) : []
+    const inSalesSteps = Array.isArray(payload.salesSteps) ? payload.salesSteps.filter(Boolean) : [];
 
     // Companies
-for (const c of inCompanies){
-  if (!c || !c.id || !RX.cmpy.test(c.id)) {
-    console.warn('[orchestrator] drop company with bad id', c?.id);
-    continue;
-  }
-  state.compIndex[c.id] = {
-    id: c.id,
-    name: c.name || c.displayName || String(c.id),
-    isClient: !!(c.isClient || c.IsClient || c['Companies.IsClient']),
-    // champs étendus (tolère différentes casses/entêtes Excel)
-    hqCountry:   c.hqCountry   || c.HQCountry   || c.hqcountry   || c['Companies.HQCountry']   || '',
-    website:     c.website     || c.Website     || c['Companies.Website']     || '',
-    type:        c.type        || c.Type        || c['Companies.Type']        || '',
-    mainSegment: c.mainSegment || c.MainSegment || c['Companies.MainSegment'] || '',
-    description: c.description || c.Description || c['Companies.Description'] || ''
-  };
-}
+    for (const c of inCompanies){
+      if (!c || !c.id || !RX.cmpy.test(c.id)) {
+        console.warn('[orchestrator] drop company with bad id', c?.id);
+        continue;
+      }
+      state.compIndex[c.id] = {
+        id: c.id,
+        name: c.name || c.displayName || String(c.id),
+        isClient: !!(c.isClient || c.IsClient || c['Companies.IsClient']),
+        // champs étendus
+        hqCountry:   c.hqCountry   || c.HQCountry   || c.hqcountry   || c['Companies.HQCountry']   || '',
+        website:     c.website     || c.Website     || c['Companies.Website']     || '',
+        type:        c.type        || c.Type        || c['Companies.Type']        || '',
+        mainSegment: c.mainSegment || c.MainSegment || c['Companies.MainSegment'] || '',
+        description: c.description || c.Description || c['Companies.Description'] || ''
+      };
+    }
     // Contacts
     for (const c of inContacts){
       if (!c || !c.id || !RX.cont.test(c.id)) { console.warn('[orchestrator] drop contact with bad id', c?.id); continue; }
@@ -277,7 +364,7 @@ for (const c of inCompanies){
     }
 
     // Sales steps (remplace la liste si fournie)
-     if (inSalesSteps.length){
+    if (inSalesSteps.length){
       state.salesSteps = inSalesSteps.slice();
       // IMPORTANT : pousse la liste dans le module de validation
       setAllowedSalesSteps(state.salesSteps);
@@ -302,8 +389,17 @@ for (const c of inCompanies){
       }
     }
 
+    // --- Vocab ---
+    if (payload.vocab && typeof payload.vocab === 'object'){
+      setVocabFromArrays(payload.vocab);
+    } else {
+      const inferred = buildVocabFromData(inRows, Object.values(state.compIndex));
+      setVocabFromArrays(inferred);
+    }
+
     persist();
     BUS.emit('opps.updated', { id: null, import: true, added, updated, invalid });
+    emitVocabReady('mergeImport');
   }
 
   // ---------- Event wiring ----------
@@ -329,29 +425,30 @@ for (const c of inCompanies){
   function bootstrap(forceDemo=false){
     // Load persisted
     const rows       = loadLS(STORAGE.rows, []);
-    const companies  = loadLS(STORAGE.companies, []); // [{id,name,isClient}]
+    const companies  = loadLS(STORAGE.companies, []); // [{id,name,isClient,...}]
     const contacts   = loadLS(STORAGE.contacts, []);  // [{id,displayName,...}]
     const steps      = loadLS(STORAGE.salesSteps, []); // [string]
     const clients    = loadLS(STORAGE.clients, []);   // [CMPY-xxxxxx]
+    const vocabLS    = loadLS(STORAGE.vocab, null);
 
     state.rows = Array.isArray(rows) ? rows : [];
 
- state.compIndex = {};
-(Array.isArray(companies) ? companies : []).forEach(c => {
-  if (c && c.id && RX.cmpy.test(c.id)) {
-    state.compIndex[c.id] = {
-      id: c.id,
-      name: c.name || String(c.id),
-      isClient: !!c.isClient,
-      // champs étendus (si existants en storage, on les reprend tels quels)
-      hqCountry:   c.hqCountry   || '',
-      website:     c.website     || '',
-      type:        c.type        || '',
-      mainSegment: c.mainSegment || '',
-      description: c.description || ''
-    };
-  }
-});
+    state.compIndex = {};
+    (Array.isArray(companies) ? companies : []).forEach(c => {
+      if (c && c.id && RX.cmpy.test(c.id)) {
+        state.compIndex[c.id] = {
+          id: c.id,
+          name: c.name || String(c.id),
+          isClient: !!c.isClient,
+          // champs étendus (si existants en storage, on les reprend tels quels)
+          hqCountry:   c.hqCountry   || '',
+          website:     c.website     || '',
+          type:        c.type        || '',
+          mainSegment: c.mainSegment || '',
+          description: c.description || ''
+        };
+      }
+    });
     state.contIndex = {};
     (Array.isArray(contacts) ? contacts : []).forEach(c => {
       if (c && c.id && RX.cont.test(c.id)){
@@ -378,6 +475,15 @@ for (const c of inCompanies){
 
     rebuildDerivedLookups();
 
+    // Vocab: charger LS sinon générer depuis les données existantes
+    if (vocabLS && typeof vocabLS === 'object'){
+      setVocabFromArrays(vocabLS);
+    } else {
+      const inferred = buildVocabFromData(state.rows, Object.values(state.compIndex));
+      setVocabFromArrays(inferred);
+      saveLS(STORAGE.vocab, state.vocab);
+    }
+
     if ((state.rows.length === 0 || forceDemo) && Object.keys(state.compIndex).length === 0){
       // Demo seed alignée sur CMPY/CON/OPP
       state.compIndex = {
@@ -390,32 +496,40 @@ for (const c of inCompanies){
         'CON-000002': { id:'CON-000002', displayName:'John Doe',        firstName:'John', lastName:'Doe',        companyId:'CMPY-000002' }
       };
       state.salesSteps = DEFAULT_STEPS.slice();
+      setAllowedSalesSteps(state.salesSteps);
       state.rows = [
-        { id:'OPP-000001', name:'Migration CRM', salesStep:'Discovery', client:'Maello', owner:'Marc',  companyId:'CMPY-000001', contactId:'CON-000001', closingValue:12000, nextAction:'Call', nextActionDate:'2025-10-10', closingDate:'' },
-        { id:'OPP-000002', name:'Integration',   salesStep:'Qualified', client:'Globex', owner:'Sven',  companyId:'CMPY-000002', contactId:'CON-000002', closingValue:22000, nextAction:'POC',  nextActionDate:'2025-10-15', closingDate:'' }
+        { id:'OPP-000001', name:'Migration CRM', salesStep:'Discovery', client:'Maello', owner:'Marc',  companyId:'CMPY-000001', contactId:'CON-000001', closingValue:12000, nextAction:'Call', nextActionDate:'2025-10-10', closingDate:'', leadSource:'Referral' },
+        { id:'OPP-000002', name:'Integration',   salesStep:'Qualified', client:'Globex', owner:'Sven',  companyId:'CMPY-000002', contactId:'CON-000002', closingValue:22000, nextAction:'POC',  nextActionDate:'2025-10-15', closingDate:'', leadSource:'Inbound' }
       ];
+      // vocabs seed depuis données démo
+      const inferred = buildVocabFromData(state.rows, Object.values(state.compIndex));
+      setVocabFromArrays(inferred);
       rebuildDerivedLookups();
       persist();
     }
 
     BUS.emit('data.loaded', getState());
+    emitVocabReady('bootstrap');
   }
 
   // Expose minimal API
   window.DATA = window.DATA || {};
   window.DATA.orchestrator = {
-  getState,
-  resolveCompanyName,
-  resolveContactName,
-  validateOpportunity,
-  saveOpportunity,
-  reset,
-  persist,
-  bootstrap,
-  // helpers directs
-  getCompanyById: (id) => state.compIndex[id],
-  getContactById: (id) => state.contIndex[id]
-};
+    getState,
+    resolveCompanyName,
+    resolveContactName,
+    validateOpportunity,
+    saveOpportunity,
+    reset,
+    persist,
+    bootstrap,
+    // helpers directs
+    getCompanyById: (id) => state.compIndex[id],
+    getContactById: (id) => state.contIndex[id],
+    // Point 1 API
+    getVocab,
+    addToVocab
+  };
   // Auto-boot
   bootstrap();
 })();
