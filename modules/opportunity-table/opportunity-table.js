@@ -183,9 +183,8 @@
               <td><input type="text" value="${esc(owner)}" data-field="owner" /></td>
               <td><input type="text" value="${esc(companyName)}" data-field="companyName" disabled /></td>
               <td><input type="text" value="${esc(contactName)}" data-field="contactName" disabled /></td>
-              <td><input type="text" value="${esc(notes)}" data-field="notes" /></td>
-              <td><input type="text" value="${esc(nextAct)}" data-field="nextAction" /></td>
-              <td><input type="date" value="${esc(iso(nextActDt))}" data-field="nextActionDate" /></td>
+              <td><textarea data-field="notes" rows="3" style="width:100%;">${esc(notes)}</textarea></td>
+              <td><textarea data-field="nextAction" rows="3" style="width:100%;">${esc(nextAct)}</textarea></td>              <td><input type="date" value="${esc(iso(nextActDt))}" data-field="nextActionDate" /></td>
               <td><input type="date" value="${esc(iso(closingDt))}" data-field="closingDate" /></td>
               <td><input type="number" step="0.01" value="${esc(closingVal||'')}" data-field="closingValue" /></td>
             </tr>
