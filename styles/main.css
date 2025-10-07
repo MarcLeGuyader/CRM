@@ -230,8 +230,16 @@ main#opps {
   --muted: #475569;
   --line: #e2e8f0;
 }
-.opps-wrap{ padding: 8px; }
-.opps-table{ width:100%; border-collapse: collapse; }
+.opps-wrap{ 
+  padding: 8px; 
+  overflow-x: auto;            /* ← permet à la table de dépasser en largeur */
+}
+.opps-table{ 
+  width:100%; 
+  border-collapse: collapse; 
+  table-layout: auto;          /* ← largeur dictée par le contenu */
+  min-width: 1100px;           /* ← offre de l’espace aux colonnes longues */
+}
 .opps-table th, .opps-table td{ 
   padding: 8px 10px; 
   border-bottom: 1px solid var(--line);
@@ -251,14 +259,50 @@ main#opps {
   user-select: none;
   font-size: 16px;
 }
+
 /* liens actifs uniquement quand on n'est PAS en inline */
 .opps-wrap:not(.inline) .opps-table .link {
   cursor: pointer;
   text-decoration: underline;
   text-underline-offset: 2px;
 }
+
 .opps-empty{
   padding: 12px;
   color: var(--muted);
   font-style: italic;
 }
+
+/* ======= Améliorations de lisibilité demandées ======= */
+
+/* Notes (col 7) & Next action (col 8) : multi-lignes, bonne césure */
+.opps-table td:nth-child(7),
+.opps-table td:nth-child(8) {
+  white-space: normal;
+  line-height: 1.35;
+  word-break: break-word;
+  padding-right: 14px;
+}
+
+/* Dates (col 9 & 10) : plus petites, compactes, non coupées */
+.opps-table th:nth-child(9),
+.opps-table th:nth-child(10),
+.opps-table td:nth-child(9),
+.opps-table td:nth-child(10) {
+  font-size: 12px;
+  white-space: nowrap;
+  width: 1%;
+}
+
+/* Closing value (col 11) : serrée, non coupée */
+.opps-table th:nth-child(11),
+.opps-table td:nth-child(11) {
+  white-space: nowrap;
+  width: 1%;
+}
+
+/* Un peu plus d’espace pour le nom & l’étape */
+.opps-table th:nth-child(1),
+.opps-table td:nth-child(1) { min-width: 220px; }
+.opps-table th:nth-child(2),
+.opps-table td:nth-child(2) { min-width: 140px; }
