@@ -15,20 +15,22 @@ input,select,textarea{border:1px solid #d8dee6;border-radius:8px;padding:8px;fon
 button{border:1px solid var(--line);border-radius:8px;background:#fff;padding:8px 12px;cursor:pointer}
 button.primary{background:var(--brand);color:#fff;border-color:var(--brand)}
 button.ghost{background:transparent;border-color:#c6d2df}
-button.danger{background:var(--warn);color:#fff;border-color:var(--warn)}
-.status{margin-left:auto;color:var(--muted)}
+button.danger{background:var(--warn);color:#fff;border-color:#var(--warn)}
+.status{margin-left:auto;color:#334155}
 .progress{display:flex;gap:8px;align-items:center;margin-top:10px}
 progress{width:220px;height:10px}
 .main{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .tree-panel,.actions{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px}
 .tree-header{display:flex;align-items:center;gap:10px}
-.tree{max-height:520px;overflow:auto;border:1px dashed #edf2f7;border-radius:8px;padding:8px;margin-top:8px;font-family:ui-monospace,monospace;font-size:12px}
-.node{display:flex;align-items:center;gap:6px;padding:2px 4px}
-.node .name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.node .badge{font-size:10px;color:#64748b}
-.cards{display:grid;grid-template-columns:1fr;gap:12px}
-.card{border:1px solid var(--line);border-radius:10px;padding:12px}
-.inline{display:flex;align-items:center;gap:8px}
+.tree{max-height:520px;overflow:auto;border:1px dashed #dbe3ec;border-radius:8px;padding:8px;margin-top:8px;font-family:ui-monospace,monospace;font-size:13px;background:#fff}
+.node{display:flex;align-items:center;gap:8px;padding:2px 4px;color:#0b1320}
+.node .name{display:inline-block;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.node .folder{font-weight:600}
+.node .toggle{cursor:pointer;user-select:none;width:16px;text-align:center;display:inline-block}
+ul.branch{list-style:none;margin:0;padding-left:18px;border-left:1px dashed #dbe3ec}
+.branch .node{position:relative}
+.branch .node::before{content:"";position:absolute;left:-12px;top:50%;width:8px;height:1px;background:#dbe3ec}
+.small{font-size:12px}
 .console{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px;margin:16px 0}
 .console-header{display:flex;align-items:center;gap:8px}
 pre#log{background:#0b1220;color:#e6edf3;border-radius:8px;padding:10px;max-height:260px;overflow:auto}
@@ -40,4 +42,3 @@ pre#log{background:#0b1220;color:#e6edf3;border-radius:8px;padding:10px;max-heig
 .tag.ERROR{background:#b91c1c;color:#fff}
 .tag.SUMMARY{background:#16a34a;color:#fff}
 .footer{color:#64748b;font-size:12px;text-align:center;margin:8px 0 24px}
-.hidden{display:none}

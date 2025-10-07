@@ -5,14 +5,13 @@
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Unified Repo Tool — Cleaner • Bundle • Deploy</title>
   <link rel="stylesheet" href="./styles.css">
-  <style>/* fallback minimal if stylesheet fails */</style>
 </head>
 <body>
   <div class="wrap">
     <header class="banner">
       <div class="title">
         <h1>Unified Repo Tool</h1>
-        <div class="subtitle">Cleaner • Bundle • Deploy — client‑side only</div>
+        <div class="subtitle">Cleaner • Bundle • Deploy — client-side only</div>
       </div>
       <div class="grid grid-4">
         <label>Owner<input id="owner" type="text" placeholder="MarcLeGuyader"></label>
@@ -21,7 +20,7 @@
         <label>Deploy root dir<input id="target-root" type="text" placeholder="/" value="/"></label>
       </div>
       <div class="grid grid-3">
-        <label>GitHub Token (fine‑grained, contents:read/write)
+        <label>GitHub Token (fine-grained, contents:read/write)
           <input id="token" type="password" placeholder="github_pat_...">
         </label>
         <label>Mode
@@ -30,7 +29,7 @@
             <option value="replace">Replace in target (delete missing)</option>
           </select>
         </label>
-        <label>Dry‑run (simulate only)
+        <label>Dry-run (simulate only)
           <select id="dryrun">
             <option value="on" selected>ON (recommended)</option>
             <option value="off">OFF</option>
@@ -56,7 +55,8 @@
           <h2>Project tree</h2>
           <input id="filter" type="text" placeholder="Filter paths (press Enter)"/>
         </div>
-        <div id="tree" class="tree"></div>
+        <div id="tree" class="tree" role="tree" aria-label="Repository tree"></div>
+        <div id="sel-count" class="muted small">Selected: 0 files</div>
       </section>
 
       <section class="actions">
@@ -64,9 +64,8 @@
         <div class="cards">
           <div class="card">
             <h3>A) Export JSON of selection</h3>
-            <p>Get a JSON describing selected files (paths, types).</p>
             <div class="row">
-              <button id="btn-export-json">Export JSON</button>
+              <button id="btn-export-json">Preview</button>
               <button id="btn-export-json-dl">Download JSON</button>
             </div>
             <textarea id="out-json" placeholder='JSON will appear here…' readonly></textarea>
@@ -74,7 +73,6 @@
 
           <div class="card">
             <h3>B) Export listing of tree</h3>
-            <p>Export a textual or JSON listing of the project tree (selection or full tree).</p>
             <div class="row">
               <select id="list-scope">
                 <option value="selection">Selection only</option>
@@ -91,22 +89,20 @@
 
           <div class="card">
             <h3>C) Delete selected files</h3>
-            <p>Dry‑run shows all DELETE operations. Apply requires confirmation; protected paths are skipped unless explicitly allowed.</p>
             <div class="row">
               <label class="inline"><input id="allow-protected" type="checkbox"> Allow protected paths (.github/workflows, LICENSE, README.md, CNAME)</label>
             </div>
             <div class="row">
-              <button id="btn-delete-dry" class="ghost">Dry‑run delete</button>
+              <button id="btn-delete-dry" class="ghost">Dry-run delete</button>
               <button id="btn-delete-apply" class="danger">Apply delete</button>
             </div>
           </div>
 
           <div class="card">
             <h3>D) Deploy (ZIP or single file)</h3>
-            <p>Deploy to the target root dir. Patch adds/updates only. Replace also deletes files missing from the archive within target.</p>
             <div class="row">
               <input id="deploy-file" type="file" accept=".zip,*/*"/>
-              <button id="btn-deploy-dry" class="ghost">Dry‑run deploy</button>
+              <button id="btn-deploy-dry" class="ghost">Dry-run deploy</button>
               <button id="btn-deploy-apply" class="primary">Apply deploy</button>
             </div>
           </div>
@@ -135,7 +131,7 @@
     </section>
 
     <footer class="footer">
-      Unified Repo Tool — V0.1 — Generated on 2025-10-07T19:42:19Z
+      Unified Repo Tool — V0.2 — 2025-10-07T19:56:03Z
     </footer>
   </div>
 
