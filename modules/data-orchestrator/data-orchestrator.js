@@ -243,15 +243,23 @@ import { setAllowedSalesSteps } from '../validation-rules/validation-rules.js';
     const inSalesSteps = Array.isArray(payload.salesSteps) ? payload.salesSteps.filter(Boolean) : []
 
     // Companies
-    for (const c of inCompanies){
-      if (!c || !c.id || !RX.cmpy.test(c.id)) { console.warn('[orchestrator] drop company with bad id', c?.id); continue; }
-      state.compIndex[c.id] = {
-        id: c.id,
-        name: c.name || c.displayName || String(c.id),
-        isClient: !!(c.isClient || c.IsClient || c['Companies.IsClient'])
-      };
-    }
-
+for (const c of inCompanies){
+  if (!c || !c.id || !RX.cmpy.test(c.id)) {
+    console.warn('[orchestrator] drop company with bad id', c?.id);
+    continue;
+  }
+  state.compIndex[c.id] = {
+    id: c.id,
+    name: c.name || c.displayName || String(c.id),
+    isClient: !!(c.isClient || c.IsClient || c['Companies.IsClient']),
+    // champs étendus (tolère différentes casses/entêtes Excel)
+    hqCountry:   c.hqCountry   || c.HQCountry   || c.hqcountry   || c['Companies.HQCountry']   || '',
+    website:     c.website     || c.Website     || c['Companies.Website']     || '',
+    type:        c.type        || c.Type        || c['Companies.Type']        || '',
+    mainSegment: c.mainSegment || c.MainSegment || c['Companies.MainSegment'] || '',
+    description: c.description || c.Description || c['Companies.Description'] || ''
+  };
+}
     // Contacts
     for (const c of inContacts){
       if (!c || !c.id || !RX.cont.test(c.id)) { console.warn('[orchestrator] drop contact with bad id', c?.id); continue; }
@@ -328,17 +336,22 @@ import { setAllowedSalesSteps } from '../validation-rules/validation-rules.js';
 
     state.rows = Array.isArray(rows) ? rows : [];
 
-    state.compIndex = {};
-    (Array.isArray(companies) ? companies : []).forEach(c => {
-      if (c && c.id && RX.cmpy.test(c.id)) {
-        state.compIndex[c.id] = {
-          id: c.id,
-          name: c.name || String(c.id),
-          isClient: !!c.isClient
-        };
-      }
-    });
-
+ state.compIndex = {};
+(Array.isArray(companies) ? companies : []).forEach(c => {
+  if (c && c.id && RX.cmpy.test(c.id)) {
+    state.compIndex[c.id] = {
+      id: c.id,
+      name: c.name || String(c.id),
+      isClient: !!c.isClient,
+      // champs étendus (si existants en storage, on les reprend tels quels)
+      hqCountry:   c.hqCountry   || '',
+      website:     c.website     || '',
+      type:        c.type        || '',
+      mainSegment: c.mainSegment || '',
+      description: c.description || ''
+    };
+  }
+});
     state.contIndex = {};
     (Array.isArray(contacts) ? contacts : []).forEach(c => {
       if (c && c.id && RX.cont.test(c.id)){
@@ -391,16 +404,18 @@ import { setAllowedSalesSteps } from '../validation-rules/validation-rules.js';
   // Expose minimal API
   window.DATA = window.DATA || {};
   window.DATA.orchestrator = {
-    getState,
-    resolveCompanyName,
-    resolveContactName,
-    validateOpportunity,
-    saveOpportunity,
-    reset,
-    persist,
-    bootstrap
-  };
-
+  getState,
+  resolveCompanyName,
+  resolveContactName,
+  validateOpportunity,
+  saveOpportunity,
+  reset,
+  persist,
+  bootstrap,
+  // helpers directs
+  getCompanyById: (id) => state.compIndex[id],
+  getContactById: (id) => state.contIndex[id]
+};
   // Auto-boot
   bootstrap();
 })();
