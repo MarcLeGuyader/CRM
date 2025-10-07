@@ -26,7 +26,6 @@ header {
   font-family: monospace;
   white-space: pre-wrap;
   overflow-y: auto;
-  /* ≥10 lignes (12px * 1.5 * 10 = 180px) */
   min-height: 180px;
   max-height: 260px;
 }
@@ -211,16 +210,19 @@ main#opps {
   background: #f7fbff;
 }
 
-/* Inline edit — inputs full width and style */
+/* Inline edit — inputs and textareas full width */
 .opps-wrap.inline tr.inline td > input[type="text"],
 .opps-wrap.inline tr.inline td > input[type="date"],
-.opps-wrap.inline tr.inline td > input[type="number"] {
+.opps-wrap.inline tr.inline td > input[type="number"],
+.opps-wrap.inline tr.inline td > textarea {
   width: 100%;
   box-sizing: border-box;
   padding: 6px 8px;
   border: 1px solid #cbd5e1;
   border-radius: 6px;
   font: inherit;
+  line-height: 1.35;
+  resize: vertical;
 }
 
 /* opportunities table module styles */
@@ -232,13 +234,13 @@ main#opps {
 }
 .opps-wrap{ 
   padding: 8px; 
-  overflow-x: auto;            /* ← permet à la table de dépasser en largeur */
+  overflow-x: auto;       /* scroll horizontal autorisé */
 }
 .opps-table{ 
   width:100%; 
   border-collapse: collapse; 
-  table-layout: auto;          /* ← largeur dictée par le contenu */
-  min-width: 1100px;           /* ← offre de l’espace aux colonnes longues */
+  table-layout: auto;     
+  min-width: 1300px;      /* table large */
 }
 .opps-table th, .opps-table td{ 
   padding: 8px 10px; 
@@ -273,18 +275,23 @@ main#opps {
   font-style: italic;
 }
 
-/* ======= Améliorations de lisibilité demandées ======= */
+/* ======= Améliorations de lisibilité ======= */
 
-/* Notes (col 7) & Next action (col 8) : multi-lignes, bonne césure */
-.opps-table td:nth-child(7),
-.opps-table td:nth-child(8) {
+/* Notes (col 7) & Next action (col 8) — largeur en caractères, multi-lignes */
+.opps-table td:nth-child(7) {
+  max-width: 50ch;
   white-space: normal;
-  line-height: 1.35;
   word-break: break-word;
-  padding-right: 14px;
+  line-height: 1.4;
+}
+.opps-table td:nth-child(8) {
+  max-width: 40ch;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.4;
 }
 
-/* Dates (col 9 & 10) : plus petites, compactes, non coupées */
+/* Dates (col 9 & 10) — compactes */
 .opps-table th:nth-child(9),
 .opps-table th:nth-child(10),
 .opps-table td:nth-child(9),
@@ -294,14 +301,14 @@ main#opps {
   width: 1%;
 }
 
-/* Closing value (col 11) : serrée, non coupée */
+/* Closing value (col 11) */
 .opps-table th:nth-child(11),
 .opps-table td:nth-child(11) {
   white-space: nowrap;
   width: 1%;
 }
 
-/* Un peu plus d’espace pour le nom & l’étape */
+/* Nom et étape un peu plus larges */
 .opps-table th:nth-child(1),
 .opps-table td:nth-child(1) { min-width: 220px; }
 .opps-table th:nth-child(2),
