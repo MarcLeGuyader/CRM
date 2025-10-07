@@ -100,7 +100,7 @@
       'filters.changed','filters.cleared','filters.toggled',
       'data.loaded','opps.updated','data.import.started','data.import.report','data.export.done','data.export.error',
       'dialogs.open.opportunity','dialogs.open.company','dialogs.open.contact','dialogs.close',
-      'dialogs.trace','dialogs.error','ui.opptable.inline.toggle','ui.opptable.inline.set'
+      'dialogs.trace','dialogs.error','ui.opptable.inline.toggle','ui.opptable.inline.set', 'opptable.trace'
     ].forEach(t => bus.on(t, p => debugApi.log(`<${t}>`, p)));
     bus.on('data.loaded', () => { const state = window.DATA?.orchestrator?.getState?.(); debugApi.log('<<state.snapshot>>', state ? { rows: state.rows?.length || 0, companies: state.companies?.length || 0, contacts: state.contacts?.length || 0, salesSteps: state.salesSteps?.length || 0 } : '(no state)'); });
   </script>
