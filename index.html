@@ -5,8 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>CRM – Modular App</title>
   <link rel="stylesheet" href="./styles/main.css">
-
-  <!-- XLSX loader helper: injects SheetJS if not already present -->
   <script>
     async function ensureXLSX() {
       if (window.XLSX) return true;
@@ -24,93 +22,44 @@
 </head>
 <body>
   <div id="banner"></div>
-  <div id="debug"></div>   <!-- debug juste sous le bandeau -->
-  <section id="filters"></section> <!-- au-dessus des filtres -->
+  <div id="debug"></div>
+  <section id="filters"></section>
   <main id="opps"></main>
 
   <script type="module">
-    // === 1) Event Bus
     import { bus } from './modules/event-bus/bus.js';
     window.bus = bus;
-
-    // === 2) Debug Console
     await import('./modules/debug-console/debug-console.js');
     const debugApi = window.DebugConsole?.mount
       ? window.DebugConsole.mount(document.getElementById('debug'))
       : { log: (...a)=>console.log('[debug fallback]', ...a), toggle:()=>{} };
-
-    // === 3) Data Orchestrator (source de vérité; écoute data.import.report et ré-émet opps.updated)
     try {
       await import('./modules/data-orchestrator/data-orchestrator.js');
-      // l’orchestrateur s’auto-bootstrap et émettra data.loaded
       debugApi.log('[mounted] data-orchestrator');
-    } catch (e) {
-      console.error('[index] orchestrator error', e);
-      debugApi.log('[error] orchestrator: ' + (e?.message||e));
-    }
-
-    // === 4) Top Banner
+    } catch (e) { console.error('[index] orchestrator error', e); debugApi.log('[error] orchestrator: ' + (e?.message||e)); }
     try {
       const { mount: mountBanner } = await import('./modules/top-banner/top-banner.js');
       mountBanner(document.getElementById('banner'), window.bus);
       debugApi.log('[mounted] top-banner');
-    } catch (e) {
-      console.error('[index] banner error', e);
-      debugApi.log('[error] banner: ' + (e?.message||e));
-    }
-
-    // === 5) Filters
+    } catch (e) { console.error('[index] banner error', e); debugApi.log('[error] banner: ' + (e?.message||e)); }
     try {
       const { createFiltersModule } = await import('./modules/filters/filters.js');
       const link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = './modules/filters/filters.css';
-      document.head.appendChild(link);
-
+      link.rel = 'stylesheet'; link.href = './modules/filters/filters.css'; document.head.appendChild(link);
       const { mount: mountFilters } = createFiltersModule(window.bus);
       mountFilters(document.getElementById('filters'), { q:'', client:'', closeDate:{}, salesStep:'' });
       debugApi.log('[mounted] filters');
-    } catch (e) {
-      console.warn('[index] filters not mounted', e);
-      debugApi.log('[warn] filters: ' + (e?.message||e));
-    }
-
-    // === 6) Opportunities Table
-    let currentRows = []; // snapshot utilisé si orchestrateur absent
+    } catch (e) { console.warn('[index] filters not mounted', e); debugApi.log('[warn] filters: ' + (e?.message||e)); }
+    let currentRows = [];
     try {
-      // CSS
       const tableCss = document.createElement('link');
-      tableCss.rel = 'stylesheet';
-      tableCss.href = './modules/opportunity-table/opportunity-table.css';
-      document.head.appendChild(tableCss);
-
-      // JS (registers window.OpportunityTable)
+      tableCss.rel = 'stylesheet'; tableCss.href = './modules/opportunity-table/opportunity-table.css'; document.head.appendChild(tableCss);
       await import('./modules/opportunity-table/opportunity-table.js');
-
-      // Résolveurs (préfère orchestrateur)
-      const resolveCompanyName =
-        (window.DATA?.orchestrator?.resolveCompanyName) ||
-        ((id)=> ({C001:'Maello',C002:'Globex',C003:'Initech'}[id]));
-      const resolveContactName =
-        (window.DATA?.orchestrator?.resolveContactName) ||
-        ((id)=> ({CT001:'Marc Le Guyader',CT002:'John Doe',CT003:'Alice Martin'}[id]));
-
-      window.OpportunityTable?.mount(
-        document.getElementById('opps'),
-        window.bus,
-        { resolveCompanyName, resolveContactName, currency:'EUR' }
-      );
-
-      // Suivre l'état pour l'export (si orchestrateur présent)
+      const resolveCompanyName = (window.DATA?.orchestrator?.resolveCompanyName) || ((id)=> ({C001:'Maello',C002:'Globex',C003:'Initech'}[id]));
+      const resolveContactName = (window.DATA?.orchestrator?.resolveContactName) || ((id)=> ({CT001:'Marc Le Guyader',CT002:'John Doe',CT003:'Alice Martin'}[id]));
+      window.OpportunityTable?.mount(document.getElementById('opps'), window.bus, { resolveCompanyName, resolveContactName, currency:'EUR' });
       bus.on('data.loaded', p => { if (p?.rows) currentRows = p.rows; });
-      bus.on('opps.updated', () => {
-        if (window.DATA?.orchestrator?.getState) {
-          const s = window.DATA.orchestrator.getState();
-          if (s?.rows) currentRows = s.rows;
-        }
-      });
-
-      // Seed de démo seulement si l’orchestrateur n’a rien émis
+      bus.on('opps.updated', () => { if (window.DATA?.orchestrator?.getState) { const s = window.DATA.orchestrator.getState(); if (s?.rows) currentRows = s.rows; } });
       let seeded = false;
       setTimeout(() => {
         if (!seeded && currentRows.length === 0 && !window.DATA?.orchestrator) {
@@ -119,113 +68,41 @@
             { id:'OPP-000001', name:'Migration CRM', salesStep:'Discovery', client:'Maello', owner:'Marc',  companyId:'C001', contactId:'CT001', notes:'', nextAction:'Call', nextActionDate:'2025-10-10', closingDate:'', closingValue:12000 },
             { id:'OPP-000002', name:'Integration',   salesStep:'Qualified', client:'Globex', owner:'Sven', companyId:'C002', contactId:'CT002', notes:'NDA signed', nextAction:'POC',  nextActionDate:'2025-10-15', closingDate:'', closingValue:22000 }
           ];
-          currentRows = rows;
-          bus.emit('data.loaded', { rows });
+          currentRows = rows; bus.emit('data.loaded', { rows });
         }
       }, 300);
-
       debugApi.log('[mounted] opportunity-table');
-    } catch (e) {
-      console.error('[index] opportunity-table error', e);
-      debugApi.log('[error] opportunity-table: ' + (e?.message||e));
-    }
-
-    // === 6.5) Dialogs
+    } catch (e) { console.error('[index] opportunity-table error', e); debugApi.log('[error] opportunity-table: ' + (e?.message||e)); }
     try {
-  const { mountDialogs } = await import('./modules/dialogs/dialogs.js');
-
-  // Orchestrator (plus direct, profite des helpers ajoutés dans le patch orchestrator)
-  const orchestrator = window.DATA?.orchestrator;
-  const getState = () => orchestrator?.getState?.() || {};
-
-  // Résolveurs robustes (utilisent les helpers si présents, sinon fallback sur l'état)
-  const resolveCompanyName = (id) =>
-    orchestrator?.resolveCompanyName?.(id) ||
-    ((getState().companies || []).find(c => c.id === id)?.name || '');
-
-  const resolveContactName = (id) =>
-    orchestrator?.resolveContactName?.(id) ||
-    (()=>{
-      const ct = (getState().contacts || []).find(c => c.id === id);
-      return ct ? (ct.displayName || [ct.firstName||'', ct.lastName||''].join(' ').trim()) : '';
-    })();
-
-  const getCompanyById = (id) =>
-    orchestrator?.getCompanyById?.(id) ||
-    (getState().companies || []).find(c => c.id === id);
-
-  const getContactById = (id) =>
-    orchestrator?.getContactById?.(id) ||
-    (getState().contacts || []).find(c => c.id === id);
-
-  const listContactsByCompany = (companyId) =>
-    (getState().contacts || []).filter(c => c.companyId === companyId);
-
-  const getOpportunityById = (id) =>
-    (getState().rows || []).find(r => r.id === id) || null;
-
-  const getSalesSteps = () =>
-    Array.isArray(getState().salesSteps) ? getState().salesSteps : [];
-
-  window.dialogs = mountDialogs({
-    bus: window.bus,
-    resolveCompanyName,
-    resolveContactName,
-    listContactsByCompany,
-    getOpportunityById,
-    getSalesSteps,
-    getCompanyById,
-    getContactById
-  });
-
-  debugApi.log('[mounted] dialogs');
-} catch (e) {
-  console.warn('[index] dialogs not mounted', e);
-  debugApi.log('[warn] dialogs: ' + (e?.message || e));
-}
-
-    // === 7) Import/Export (Excel support ensured)
+      const { mountDialogs } = await import('./modules/dialogs/dialogs.js');
+      const orchestrator = window.DATA?.orchestrator;
+      const getState = () => orchestrator?.getState?.() || {};
+      const resolveCompanyName = (id) => orchestrator?.resolveCompanyName?.(id) || ((getState().companies || []).find(c => c.id === id)?.name || '');
+      const resolveContactName = (id) => orchestrator?.resolveContactName?.(id) || (()=>{ const ct = (getState().contacts || []).find(c => c.id === id); return ct ? (ct.displayName || [ct.firstName||'', ct.lastName||''].join(' ').trim()) : ''; })();
+      const getCompanyById = (id) => orchestrator?.getCompanyById?.(id) || (getState().companies || []).find(c => c.id === id);
+      const getContactById = (id) => orchestrator?.getContactById?.(id) || (getState().contacts || []).find(c => c.id === id);
+      const listContactsByCompany = (companyId) => (getState().contacts || []).filter(c => c.companyId === companyId);
+      const getOpportunityById = (id) => (getState().rows || []).find(r => r.id === id) || null;
+      const getSalesSteps = () => Array.isArray(getState().salesSteps) ? getState().salesSteps : [];
+      window.dialogs = mountDialogs({ bus: window.bus, resolveCompanyName, resolveContactName, listContactsByCompany, getOpportunityById, getSalesSteps, getCompanyById, getContactById });
+      debugApi.log('[mounted] dialogs');
+    } catch (e) { console.warn('[index] dialogs not mounted', e); debugApi.log('[warn] dialogs: ' + (e?.message || e)); }
     try {
-      await ensureXLSX(); // <-- Make sure SheetJS is present on window.XLSX
-
+      await ensureXLSX();
       const { registerImportExport } = await import('./modules/import-export/index.js');
-
-      // Prefer orchestrator rows; fallback à currentRows
-      const getRows = () => {
-        const s = window.DATA?.orchestrator?.getState?.();
-        return (s && Array.isArray(s.rows)) ? s.rows : (Array.isArray(currentRows) ? currentRows : []);
-      };
-
+      const getRows = () => { const s = window.DATA?.orchestrator?.getState?.(); return (s && Array.isArray(s.rows)) ? s.rows : (Array.isArray(currentRows) ? currentRows : []); };
       registerImportExport({ bus: window.bus, getRows });
       debugApi.log('[mounted] import-export');
-    } catch (e) {
-      console.warn('[index] import-export not mounted', e);
-      debugApi.log('[warn] import-export: ' + (e?.message||e));
-    }
-
-    // === 8) Glue: log key events to debug
- 
-  [
-  'ui.banner.filter','ui.banner.new','ui.banner.debug','ui.banner.reset',
-  'ui.banner.upload','ui.banner.export','ui.banner.save',
-  'filters.changed','filters.cleared','filters.toggled',
-  'data.loaded','opps.updated','data.import.started','data.import.report','data.export.done','data.export.error',
-  'dialogs.open.opportunity','dialogs.open.company','dialogs.open.contact','dialogs.close',
-  // 👇 nouveaux événements pour debug détaillé
-  'dialogs.trace','dialogs.error'
-].forEach(t => bus.on(t, p => debugApi.log(`<${t}>`, p)));
-
-// 👇 en plus : dump complet de l’état CRM à chaque import
-bus.on('data.loaded', () => {
-  const state = window.DATA?.orchestrator?.getState?.();
-  debugApi.log('<<state.snapshot>>', state ? {
-    rows: state.rows?.length || 0,
-    companies: state.companies?.length || 0,
-    contacts: state.contacts?.length || 0,
-    salesSteps: state.salesSteps?.length || 0
-  } : '(no state)');
-});
-  
+    } catch (e) { console.warn('[index] import-export not mounted', e); debugApi.log('[warn] import-export: ' + (e?.message||e)); }
+    [
+      'ui.banner.filter','ui.banner.new','ui.banner.debug','ui.banner.reset',
+      'ui.banner.upload','ui.banner.export','ui.banner.save',
+      'filters.changed','filters.cleared','filters.toggled',
+      'data.loaded','opps.updated','data.import.started','data.import.report','data.export.done','data.export.error',
+      'dialogs.open.opportunity','dialogs.open.company','dialogs.open.contact','dialogs.close',
+      'dialogs.trace','dialogs.error','ui.opptable.inline.toggle','ui.opptable.inline.set'
+    ].forEach(t => bus.on(t, p => debugApi.log(`<${t}>`, p)));
+    bus.on('data.loaded', () => { const state = window.DATA?.orchestrator?.getState?.(); debugApi.log('<<state.snapshot>>', state ? { rows: state.rows?.length || 0, companies: state.companies?.length || 0, contacts: state.contacts?.length || 0, salesSteps: state.salesSteps?.length || 0 } : '(no state)'); });
   </script>
 </body>
 </html>
