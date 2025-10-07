@@ -205,13 +205,28 @@
     }
 
     // === 8) Glue: log key events to debug
-    [
-      'ui.banner.filter','ui.banner.new','ui.banner.debug','ui.banner.reset',
-      'ui.banner.upload','ui.banner.export','ui.banner.save',
-      'filters.changed','filters.cleared','filters.toggled',
-      'data.loaded','opps.updated','data.import.started','data.import.report','data.export.done','data.export.error',
-      'dialogs.open.opportunity','dialogs.open.company','dialogs.open.contact','dialogs.close'
-    ].forEach(t => bus.on(t, p => debugApi.log(`<${t}>`, p)));
+ 
+  [
+  'ui.banner.filter','ui.banner.new','ui.banner.debug','ui.banner.reset',
+  'ui.banner.upload','ui.banner.export','ui.banner.save',
+  'filters.changed','filters.cleared','filters.toggled',
+  'data.loaded','opps.updated','data.import.started','data.import.report','data.export.done','data.export.error',
+  'dialogs.open.opportunity','dialogs.open.company','dialogs.open.contact','dialogs.close',
+  // 👇 nouveaux événements pour debug détaillé
+  'dialogs.trace','dialogs.error'
+].forEach(t => bus.on(t, p => debugApi.log(`<${t}>`, p)));
+
+// 👇 en plus : dump complet de l’état CRM à chaque import
+bus.on('data.loaded', () => {
+  const state = window.DATA?.orchestrator?.getState?.();
+  debugApi.log('<<state.snapshot>>', state ? {
+    rows: state.rows?.length || 0,
+    companies: state.companies?.length || 0,
+    contacts: state.contacts?.length || 0,
+    salesSteps: state.salesSteps?.length || 0
+  } : '(no state)');
+});
+  
   </script>
 </body>
 </html>
