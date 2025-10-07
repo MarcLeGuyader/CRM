@@ -276,3 +276,50 @@ main#opps {
 .opps-table td:nth-child(1) { min-width: 220px; }
 .opps-table th:nth-child(2),
 .opps-table td:nth-child(2) { min-width: 140px; }
+
+
+/* === Patch de stabilisation largeur (placer à la fin du fichier) === */
+
+/* La table suit la largeur du contenu (scroll horizontal garanti) */
+.opps-wrap .opps-table {
+  width: max-content;      /* ← au lieu de dépendre du conteneur */
+  min-width: 1300px;       /* garde ta base large */
+}
+
+/* Notes (7) & Next action (8) — verrouille les largeurs en ch */
+.opps-wrap .opps-table th:nth-child(7),
+.opps-wrap .opps-table td:nth-child(7) {
+  width: 150ch !important;
+  max-width: 150ch !important;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.4;
+}
+
+.opps-wrap .opps-table th:nth-child(8),
+.opps-wrap .opps-table td:nth-child(8) {
+  width: 120ch !important;
+  max-width: 120ch !important;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.4;
+}
+
+/* Dates (9–10) & Closing value (11) — restent compacts */
+.opps-wrap .opps-table th:nth-child(9),
+.opps-wrap .opps-table td:nth-child(9),
+.opps-wrap .opps-table th:nth-child(10),
+.opps-wrap .opps-table td:nth-child(10),
+.opps-wrap .opps-table th:nth-child(11),
+.opps-wrap .opps-table td:nth-child(11) {
+  white-space: nowrap;
+  width: 1%;
+  font-size: 12px;
+}
+
+/* Name (1) & Sales step (2) — on garde les min-width avec plus de spécificité */
+.opps-wrap .opps-table th:nth-child(1),
+.opps-wrap .opps-table td:nth-child(1) { min-width: 220px; }
+
+.opps-wrap .opps-table th:nth-child(2),
+.opps-wrap .opps-table td:nth-child(2) { min-width: 140px; }
