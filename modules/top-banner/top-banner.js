@@ -1,5 +1,3 @@
-Voici une version patchée complète de modules/top-banner/top-banner.js avec le bouton “Inline edit” qui émet ui.opptable.inline.toggle et affiche son état (ON/OFF). J’ai gardé ton style inline et le comportement des autres boutons.
-
 // modules/top-banner/top-banner.js
 // Top Banner module — renders header UI and emits ui.banner.* events via the shared event bus
 // + Ajout d'un bouton "Inline edit" qui émet ui.opptable.inline.toggle { on:boolean }
