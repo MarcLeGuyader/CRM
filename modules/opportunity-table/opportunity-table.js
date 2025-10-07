@@ -156,6 +156,9 @@
           </tr>
         `;
       }).join('');
+
+			// toggle inline CSS class on wrapper to adjust link styling
+wrap.classList.toggle('inline', !!state.isInlineEdit);
     }
 
     // -------- Row click behavior --------
