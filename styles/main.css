@@ -1,10 +1,11 @@
-/* === Global === */
 body {
   margin: 0;
   font-family: system-ui, sans-serif;
   background: #f7f9f8;
   color: #0b1320;
 }
+
+/* Bandeau principal */
 header {
   background-color: rgb(75, 134, 128);
   color: white;
@@ -14,6 +15,8 @@ header {
   padding: 10px 20px;
   height: 60px;
 }
+
+/* Console debug — placée juste sous le bandeau */
 #debug {
   background: #eef2f2;
   border-bottom: 1px solid #c9d3d0;
@@ -26,31 +29,250 @@ header {
   min-height: 180px;
   max-height: 260px;
 }
+
+/* Filtres — sous la console debug */
 section#filters {
   background: #e5ecea;
   padding: 10px;
   border-bottom: 1px solid #c9d3d0;
 }
-main#opps { padding: 20px; }
 
-/* === Table === */
-.opps-wrap { padding: 8px; overflow-x: auto; }
+/* Contenu principal (opportunités) */
+main#opps {
+  padding: 20px;
+}
+
+/* ====== Dialogs (modules/dialogs) ====== */
+.crm-dialogs-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, .35);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+}
+.crm-dialogs-backdrop.open { display: flex; }
+
+.crm-dialog {
+  background: #fff;
+  border: 1px solid #c9d3d0;
+  border-radius: 10px;
+  padding: 18px 18px 12px;
+  max-width: 780px;
+  width: min(94vw, 780px);
+  max-height: 86vh;
+  overflow: auto;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .2);
+}
+
+.crm-dialog header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.crm-dialog header h3 { margin: 0; font-size: 18px; font-weight: 600; }
+
+.crm-dialog .grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 14px;
+  margin-bottom: 10px;
+}
+.crm-dialog label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: #415057;
+}
+.crm-dialog input,
+.crm-dialog select,
+.crm-dialog textarea {
+  font: inherit;
+  padding: 8px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #0b1320;
+}
+.crm-dialog textarea { min-height: 84px; resize: vertical; }
+
+/* key-value mini table */
+.kv {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  gap: 6px 10px;
+  margin: 6px 0;
+}
+.kv-k { font-weight: 600; color: #334247; }
+.kv-v { color: #0b1320; }
+
+.crm-link {
+  color: #1e6091;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.badge-client,
+.badge-nonclient {
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 12px;
+  color: #fff;
+}
+.badge-client { background: #4B8680; }
+.badge-nonclient { background: #b0b8bb; }
+
+.crm-errors {
+  margin: 8px 0 0;
+  padding: 8px;
+  background: #fbeaea;
+  color: #8a1f1f;
+  border: 1px solid #f2c8c8;
+  border-radius: 8px;
+  white-space: pre-wrap;
+  font-size: 12px;
+}
+
+/* Actions */
+.crm-dialog menu {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 0;
+}
+.crm-btn {
+  padding: 8px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #0b1320;
+  cursor: pointer;
+}
+.crm-btn.primary {
+  background: #1e6091;
+  border-color: #1e6091;
+  color: #fff;
+}
+.crm-btn:disabled { opacity: .6; cursor: not-allowed; }
+
+/* Inline edit ON: disable link look and clicks */
+.opps-wrap.inline .link {
+  text-decoration: none !important;
+  border-bottom: none !important;
+  color: inherit !important;
+  cursor: default !important;
+  pointer-events: none;
+}
+
+/* Inline edit — hint background for edited rows */
+.opps-wrap.inline tr.inline td { background: #f7fbff; }
+
+/* Inline edit — inputs & textareas */
+.opps-wrap.inline tr.inline td > input[type="text"],
+.opps-wrap.inline tr.inline td > input[type="date"],
+.opps-wrap.inline tr.inline td > input[type="number"],
+.opps-wrap.inline tr.inline td > textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font: inherit;
+  line-height: 1.35;
+  resize: vertical;
+}
+
+/* === Opportunities Table === */
+:root{
+  --alt-row: rgb(216,214,208);
+  --text: #0f172a;
+  --muted: #475569;
+  --line: #e2e8f0;
+}
+
+.opps-wrap {
+  padding: 8px;
+  overflow-x: auto;          /* scroll horizontal autorisé */
+}
 .opps-table {
   border-collapse: collapse;
-  table-layout: fixed;
-  width: max-content;
-  min-width: 1200px;
+  table-layout: auto;        /* largeur selon contenu */
+  width: auto;
+  min-width: 1300px;
 }
-.opps-table col.col-notes { width:150ch; }
-.opps-table col.col-next  { width:120ch; }
 .opps-table th, .opps-table td {
   padding: 8px 10px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--line);
   text-align: left;
   vertical-align: top;
   font-size: 14px;
+}
+.opps-table thead th { font-weight: 600; }
+.opps-table tbody tr:nth-child(odd) { background: var(--alt-row); }
+.opps-table tbody tr:nth-child(even) { background: transparent; }
+
+.opps-table .cell-company, .opps-table .cell-contact {
+  color: var(--muted);
+  font-size: 12px;
+}
+.opps-empty {
+  padding: 12px;
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* Liens actifs seulement hors inline */
+.opps-wrap:not(.inline) .opps-table .link {
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* === Colonnes spécifiques === */
+
+/* Notes (7) & Next action (8) — largeur 3× plus grande + multi-ligne */
+.opps-table th:nth-child(7),
+.opps-table td:nth-child(7) {
+  width: 150ch;
+  max-width: 150ch;
   white-space: normal;
   word-break: break-word;
+  line-height: 1.4;
 }
-.opps-table tbody tr:nth-child(odd) { background: rgb(216,214,208); }
-.opps-table tbody tr:hover { background: #d8f5e0; } /* hover color */
+
+.opps-table th:nth-child(8),
+.opps-table td:nth-child(8) {
+  width: 120ch;
+  max-width: 120ch;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.4;
+}
+/* Dates (9–10) compactes */
+.opps-table th:nth-child(9),
+.opps-table th:nth-child(10),
+.opps-table td:nth-child(9),
+.opps-table td:nth-child(10) {
+  font-size: 12px;
+  white-space: nowrap;
+  width: 1%;
+}
+
+/* Closing value (11) */
+.opps-table th:nth-child(11),
+.opps-table td:nth-child(11) {
+  white-space: nowrap;
+  width: 1%;
+}
+
+/* Colonnes larges pour Name (1) et Step (2) */
+.opps-table th:nth-child(1),
+.opps-table td:nth-child(1) { min-width: 220px; }
+.opps-table th:nth-child(2),
+.opps-table td:nth-child(2) { min-width: 140px; }
