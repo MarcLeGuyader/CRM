@@ -132,58 +132,57 @@
 
     // === 6.5) Dialogs
     try {
-      const { mountDialogs } = await import('./modules/dialogs/dialogs.js');
+  const { mountDialogs } = await import('./modules/dialogs/dialogs.js');
 
-      // Helpers sûrs basés sur l’orchestrateur.getState()
-      const getState = () => window.DATA?.orchestrator?.getState?.() || {};
-      const getOpportunityById = (id) => {
-        const s = getState();
-        return (s.rows || []).find(r => r.id === id) || null;
-      };
-      const listContactsByCompany = (companyId) => {
-        const s = getState();
-        return (s.contacts || []).filter(c => c.companyId === companyId);
-      };
-      const resolveCompanyName = (id) => {
-        const s = getState();
-        const c = (s.companies || []).find(x => x.id === id);
-        return c?.name || '';
-      };
-      const resolveContactName = (id) => {
-        const s = getState();
-        const ct = (s.contacts || []).find(x => x.id === id);
-        if (!ct) return '';
-        return ct.displayName || [ct.firstName||'', ct.lastName||''].join(' ').trim();
-      };
-      const getCompanyById = (id) => {
-        const s = getState();
-        return (s.companies || []).find(c => c.id === id);
-      };
-      const getContactById = (id) => {
-        const s = getState();
-        return (s.contacts || []).find(c => c.id === id);
-      };
-      const getSalesSteps = () => {
-        const s = getState();
-        return Array.isArray(s.salesSteps) ? s.salesSteps : [];
-      };
+  // Orchestrator (plus direct, profite des helpers ajoutés dans le patch orchestrator)
+  const orchestrator = window.DATA?.orchestrator;
+  const getState = () => orchestrator?.getState?.() || {};
 
-      window.dialogs = mountDialogs({
-        bus: window.bus,
-        resolveCompanyName,
-        resolveContactName,
-        listContactsByCompany,
-        getOpportunityById,
-        getSalesSteps,
-        getCompanyById,
-        getContactById
-      });
+  // Résolveurs robustes (utilisent les helpers si présents, sinon fallback sur l'état)
+  const resolveCompanyName = (id) =>
+    orchestrator?.resolveCompanyName?.(id) ||
+    ((getState().companies || []).find(c => c.id === id)?.name || '');
 
-      debugApi.log('[mounted] dialogs');
-    } catch (e) {
-      console.warn('[index] dialogs not mounted', e);
-      debugApi.log('[warn] dialogs: ' + (e?.message || e));
-    }
+  const resolveContactName = (id) =>
+    orchestrator?.resolveContactName?.(id) ||
+    (()=>{
+      const ct = (getState().contacts || []).find(c => c.id === id);
+      return ct ? (ct.displayName || [ct.firstName||'', ct.lastName||''].join(' ').trim()) : '';
+    })();
+
+  const getCompanyById = (id) =>
+    orchestrator?.getCompanyById?.(id) ||
+    (getState().companies || []).find(c => c.id === id);
+
+  const getContactById = (id) =>
+    orchestrator?.getContactById?.(id) ||
+    (getState().contacts || []).find(c => c.id === id);
+
+  const listContactsByCompany = (companyId) =>
+    (getState().contacts || []).filter(c => c.companyId === companyId);
+
+  const getOpportunityById = (id) =>
+    (getState().rows || []).find(r => r.id === id) || null;
+
+  const getSalesSteps = () =>
+    Array.isArray(getState().salesSteps) ? getState().salesSteps : [];
+
+  window.dialogs = mountDialogs({
+    bus: window.bus,
+    resolveCompanyName,
+    resolveContactName,
+    listContactsByCompany,
+    getOpportunityById,
+    getSalesSteps,
+    getCompanyById,
+    getContactById
+  });
+
+  debugApi.log('[mounted] dialogs');
+} catch (e) {
+  console.warn('[index] dialogs not mounted', e);
+  debugApi.log('[warn] dialogs: ' + (e?.message || e));
+}
 
     // === 7) Import/Export (Excel support ensured)
     try {
