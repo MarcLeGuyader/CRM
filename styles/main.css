@@ -47,14 +47,12 @@ main#opps {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, .35);
-  display: none;              
+  display: none;
   align-items: center;
   justify-content: center;
-  z-index: 999;               
+  z-index: 999;
 }
-.crm-dialogs-backdrop.open {
-  display: flex;              
-}
+.crm-dialogs-backdrop.open { display: flex; }
 
 .crm-dialog {
   background: #fff;
@@ -75,11 +73,7 @@ main#opps {
   gap: 10px;
   margin-bottom: 12px;
 }
-.crm-dialog header h3 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-}
+.crm-dialog header h3 { margin: 0; font-size: 18px; font-weight: 600; }
 
 .crm-dialog .grid2 {
   display: grid;
@@ -104,10 +98,7 @@ main#opps {
   background: #fff;
   color: #0b1320;
 }
-.crm-dialog textarea {
-  min-height: 84px;
-  resize: vertical;
-}
+.crm-dialog textarea { min-height: 84px; resize: vertical; }
 
 /* key-value mini table */
 .kv {
@@ -116,13 +107,8 @@ main#opps {
   gap: 6px 10px;
   margin: 6px 0;
 }
-.kv-k {
-  font-weight: 600;
-  color: #334247;
-}
-.kv-v {
-  color: #0b1320;
-}
+.kv-k { font-weight: 600; color: #334247; }
+.kv-v { color: #0b1320; }
 
 .crm-link {
   color: #1e6091;
@@ -131,20 +117,15 @@ main#opps {
   cursor: pointer;
 }
 
-.badge-client {
-  background: #4B8680;
-  color: #fff;
-  border-radius: 999px;
-  padding: 2px 8px;
-  font-size: 12px;
-}
+.badge-client,
 .badge-nonclient {
-  background: #b0b8bb;
-  color: #fff;
   border-radius: 999px;
   padding: 2px 8px;
   font-size: 12px;
+  color: #fff;
 }
+.badge-client { background: #4B8680; }
+.badge-nonclient { background: #b0b8bb; }
 
 .crm-errors {
   margin: 8px 0 0;
@@ -157,7 +138,7 @@ main#opps {
   font-size: 12px;
 }
 
-/* actions */
+/* Actions */
 .crm-dialog menu {
   display: flex;
   justify-content: flex-end;
@@ -178,23 +159,7 @@ main#opps {
   border-color: #1e6091;
   color: #fff;
 }
-.crm-btn:disabled {
-  opacity: .6;
-  cursor: not-allowed;
-}
-
-/* ===== Company dialog subtitle & title color ===== */
-.crm-dialog .subtitle {
-  font-size: 12px;
-  color: #666;
-  margin-top: 2px;
-}
-.crm-dialog .subtitle .muted {
-  color: #7a7a7a;
-}
-.crm-dialog .danger {
-  color: #a32020;
-}
+.crm-btn:disabled { opacity: .6; cursor: not-allowed; }
 
 /* Inline edit ON: disable link look and clicks */
 .opps-wrap.inline .link {
@@ -206,11 +171,9 @@ main#opps {
 }
 
 /* Inline edit — hint background for edited rows */
-.opps-wrap.inline tr.inline td {
-  background: #f7fbff;
-}
+.opps-wrap.inline tr.inline td { background: #f7fbff; }
 
-/* Inline edit — inputs and textareas full width */
+/* Inline edit — inputs & textareas */
 .opps-wrap.inline tr.inline td > input[type="text"],
 .opps-wrap.inline tr.inline td > input[type="date"],
 .opps-wrap.inline tr.inline td > input[type="number"],
@@ -225,73 +188,73 @@ main#opps {
   resize: vertical;
 }
 
-/* opportunities table module styles */
+/* === Opportunities Table === */
 :root{
   --alt-row: rgb(216,214,208);
   --text: #0f172a;
   --muted: #475569;
   --line: #e2e8f0;
 }
-.opps-wrap{ 
-  padding: 8px; 
-  overflow-x: auto;       /* scroll horizontal autorisé */
+
+.opps-wrap {
+  padding: 8px;
+  overflow-x: auto;          /* scroll horizontal autorisé */
 }
-.opps-table{ 
-  width:100%; 
-  border-collapse: collapse; 
-  table-layout: auto;     
-  min-width: 1300px;      /* table large */
+.opps-table {
+  border-collapse: collapse;
+  table-layout: auto;        /* largeur selon contenu */
+  width: auto;
+  min-width: 1300px;
 }
-.opps-table th, .opps-table td{ 
-  padding: 8px 10px; 
+.opps-table th, .opps-table td {
+  padding: 8px 10px;
   border-bottom: 1px solid var(--line);
   text-align: left;
   vertical-align: top;
   font-size: 14px;
 }
-.opps-table thead th{ font-weight: 600; }
-.opps-table tbody tr:nth-child(odd){ background: var(--alt-row); }
-.opps-table tbody tr:nth-child(even){ background: transparent; }
-.opps-table .cell-company, .opps-table .cell-contact{
+.opps-table thead th { font-weight: 600; }
+.opps-table tbody tr:nth-child(odd) { background: var(--alt-row); }
+.opps-table tbody tr:nth-child(even) { background: transparent; }
+
+.opps-table .cell-company, .opps-table .cell-contact {
   color: var(--muted);
   font-size: 12px;
 }
-.opps-table .action{
-  cursor: pointer;
-  user-select: none;
-  font-size: 16px;
+.opps-empty {
+  padding: 12px;
+  color: var(--muted);
+  font-style: italic;
 }
 
-/* liens actifs uniquement quand on n'est PAS en inline */
+/* Liens actifs seulement hors inline */
 .opps-wrap:not(.inline) .opps-table .link {
   cursor: pointer;
   text-decoration: underline;
   text-underline-offset: 2px;
 }
 
-.opps-empty{
-  padding: 12px;
-  color: var(--muted);
-  font-style: italic;
-}
+/* === Colonnes spécifiques === */
 
-/* ======= Améliorations de lisibilité ======= */
-
-/* Notes (col 7) & Next action (col 8) — largeur en caractères, multi-lignes */
+/* Notes (7) & Next action (8) — largeur fixe + multi-ligne */
+.opps-table th:nth-child(7),
 .opps-table td:nth-child(7) {
+  width: 50ch;
   max-width: 50ch;
   white-space: normal;
   word-break: break-word;
   line-height: 1.4;
 }
+.opps-table th:nth-child(8),
 .opps-table td:nth-child(8) {
+  width: 40ch;
   max-width: 40ch;
   white-space: normal;
   word-break: break-word;
   line-height: 1.4;
 }
 
-/* Dates (col 9 & 10) — compactes */
+/* Dates (9–10) compactes */
 .opps-table th:nth-child(9),
 .opps-table th:nth-child(10),
 .opps-table td:nth-child(9),
@@ -301,14 +264,14 @@ main#opps {
   width: 1%;
 }
 
-/* Closing value (col 11) */
+/* Closing value (11) */
 .opps-table th:nth-child(11),
 .opps-table td:nth-child(11) {
   white-space: nowrap;
   width: 1%;
 }
 
-/* Nom et étape un peu plus larges */
+/* Colonnes larges pour Name (1) et Step (2) */
 .opps-table th:nth-child(1),
 .opps-table td:nth-child(1) { min-width: 220px; }
 .opps-table th:nth-child(2),
