@@ -5,7 +5,7 @@ html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:s
 .wrap{max-width:1200px;margin:24px auto;padding:0 16px}
 .banner{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
 .title h1{margin:0}
-.subtitle{color:var(--muted);font-size:12px;margin-top:2px}
+.subtitle{color:#334155;font-size:12px;margin-top:2px}
 .grid{display:grid;gap:10px;margin-top:8px}
 .grid-4{grid-template-columns:repeat(4,1fr)}
 .grid-3{grid-template-columns:repeat(3,1fr)}
@@ -15,7 +15,7 @@ input,select,textarea{border:1px solid #d8dee6;border-radius:8px;padding:8px;fon
 button{border:1px solid var(--line);border-radius:8px;background:#fff;padding:8px 12px;cursor:pointer}
 button.primary{background:var(--brand);color:#fff;border-color:var(--brand)}
 button.ghost{background:transparent;border-color:#c6d2df}
-button.danger{background:var(--warn);color:#fff;border-color:#var(--warn)}
+button.danger{background:var(--warn);color:#fff;border-color:#c92a2a}
 .status{margin-left:auto;color:#334155}
 .progress{display:flex;gap:8px;align-items:center;margin-top:10px}
 progress{width:220px;height:10px}
@@ -23,13 +23,12 @@ progress{width:220px;height:10px}
 .tree-panel,.actions{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px}
 .tree-header{display:flex;align-items:center;gap:10px}
 .tree{max-height:520px;overflow:auto;border:1px dashed #dbe3ec;border-radius:8px;padding:8px;margin-top:8px;font-family:ui-monospace,monospace;font-size:13px;background:#fff}
-.node{display:flex;align-items:center;gap:8px;padding:2px 4px;color:#0b1320}
-.node .name{display:inline-block;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.node .folder{font-weight:600}
-.node .toggle{cursor:pointer;user-select:none;width:16px;text-align:center;display:inline-block}
-ul.branch{list-style:none;margin:0;padding-left:18px;border-left:1px dashed #dbe3ec}
-.branch .node{position:relative}
-.branch .node::before{content:"";position:absolute;left:-12px;top:50%;width:8px;height:1px;background:#dbe3ec}
+.node{display:flex;align-items:center;gap:8px;padding:2px 6px;color:#0b1320}
+.node .toggle{width:16px;text-align:center;cursor:pointer;user-select:none}
+.node .name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:calc(100% - 80px);display:inline-block}
+.branch{list-style:none;margin:0;padding-left:16px;border-left:1px dashed #e2e8f0}
+.branch > li{margin:2px 0}
+.folder{font-weight:600}
 .small{font-size:12px}
 .console{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px;margin:16px 0}
 .console-header{display:flex;align-items:center;gap:8px}
