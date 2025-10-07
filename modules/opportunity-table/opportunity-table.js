@@ -183,9 +183,13 @@
               <td><input type="text" value="${esc(owner)}" data-field="owner" /></td>
               <td><input type="text" value="${esc(companyName)}" data-field="companyName" disabled /></td>
               <td><input type="text" value="${esc(contactName)}" data-field="contactName" disabled /></td>
-              <td><input type="text" value="${esc(notes)}" data-field="notes" /></td>
-              <td><input type="text" value="${esc(nextAct)}" data-field="nextAction" /></td>
-              <td><input type="date" value="${esc(iso(nextActDt))}" data-field="nextActionDate" /></td>
+<td>
+  <textarea data-field="notes" rows="3" style="width:100%;max-width:50ch;">${esc(notes)}</textarea>
+</td>
+<td>
+  <textarea data-field="nextAction" rows="3" style="width:100%;max-width:40ch;">${esc(nextAct)}</textarea>
+</td>
+<td><input type="date" value="${esc(iso(nextActDt))}" data-field="nextActionDate" /></td>
               <td><input type="date" value="${esc(iso(closingDt))}" data-field="closingDate" /></td>
               <td><input type="number" step="0.01" value="${esc(closingVal||'')}" data-field="closingValue" /></td>
             </tr>
@@ -244,54 +248,3 @@
         return;
       }
       if (act === 'contact'){
-        const row = (state.rows || []).find(x => (x.id||x['Opportunity.ID']) === id);
-        const contactId = row && (row.contactId || row['Opportunity.ContactID']);
-        if (contactId && RX.cont.test(contactId)) {
-          trace('open.dialog.contact', { contactId });
-          bus.emit('dialogs.open.contact', { contactId });
-        }
-        return;
-      }
-    });
-
-    // -------- Listeners --------
-    const off = [];
-    off.push(bus.on('filters.changed', payload => { state.filters = payload || null; trace('filters.changed', { payload }); render(); }));
-    off.push(bus.on('filters.cleared', () => { state.filters = null; trace('filters.cleared'); render(); }));
-
-    off.push(bus.on('opps.updated', () => {
-      const s = window.DATA?.orchestrator?.getState?.();
-      if (s?.rows && Array.isArray(s.rows)) state.rows = s.rows;
-      if (Array.isArray(s?.clientList)) state.clientList = s.clientList;
-      trace('opps.updated', { rows: state.rows.length, clientList: state.clientList.length });
-      render();
-    }));
-
-    off.push(bus.on('data.loaded', payload => {
-      if (!payload) return;
-      state.rows = Array.isArray(payload.rows) ? payload.rows : [];
-      if (Array.isArray(payload.clientList)) state.clientList = payload.clientList;
-      trace('data.loaded', { rows: state.rows.length, clientList: state.clientList.length });
-      render();
-    }));
-
-    // ---- SINGLE EVENT to control inline mode ----
-    off.push(bus.on('ui.opptable.inline.toggle', ({ on }) => {
-      const prev = state.isInlineEdit;
-      state.isInlineEdit = !!on;
-      trace('inline.toggle', { prev, next: state.isInlineEdit });
-      render();
-    }));
-
-    // Optional external trigger to re-dump CSS (e.g., from console: bus.emit('ui.opptable.dumpCSS'))
-    off.push(bus.on('ui.opptable.dumpCSS', () => dumpCSS('manual')));
-
-    // Public API
-    return {
-      render: (rows, filters) => { state.rows = rows || []; state.filters = filters || null; render(); },
-      destroy: () => off.forEach(fn => { try{ fn(); }catch{} })
-    };
-  }
-
-  global.OpportunityTable = { mount };
-})(window);
