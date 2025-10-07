@@ -48,13 +48,13 @@ main#opps {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, .35);
-  display: none;              /* Caché par défaut */
+  display: none;              
   align-items: center;
   justify-content: center;
-  z-index: 999;               /* Au-dessus du reste */
+  z-index: 999;               
 }
 .crm-dialogs-backdrop.open {
-  display: flex;              /* Affiché quand un dialog est ouvert */
+  display: flex;              
 }
 
 .crm-dialog {
@@ -197,27 +197,31 @@ main#opps {
   color: #a32020;
 }
 
-
-/* Default (read-only): link appearance */
-.opps-table .link {
-  text-decoration: none;
-  border-bottom: 1px dotted transparent;
-  cursor: pointer;
-}
-.opps-table .link:hover {
-  border-bottom-color: currentColor;
-}
-
 /* Inline edit ON: disable link look and clicks */
 .opps-wrap.inline .link {
   text-decoration: none !important;
   border-bottom: none !important;
   color: inherit !important;
   cursor: default !important;
-  pointer-events: none; /* disable click */
+  pointer-events: none;
 }
 
+/* Inline edit — hint background for edited rows */
+.opps-wrap.inline tr.inline td {
+  background: #f7fbff;
+}
 
+/* Inline edit — inputs full width and style */
+.opps-wrap.inline tr.inline td > input[type="text"],
+.opps-wrap.inline tr.inline td > input[type="date"],
+.opps-wrap.inline tr.inline td > input[type="number"] {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font: inherit;
+}
 
 /* opportunities table module styles */
 :root{
