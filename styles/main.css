@@ -251,9 +251,10 @@ main#opps {
   user-select: none;
   font-size: 16px;
 }
-.opps-table .link{ 
-  cursor: pointer; 
-  text-decoration: underline; 
+/* liens actifs uniquement quand on n'est PAS en inline */
+.opps-wrap:not(.inline) .opps-table .link {
+  cursor: pointer;
+  text-decoration: underline;
   text-underline-offset: 2px;
 }
 .opps-empty{
