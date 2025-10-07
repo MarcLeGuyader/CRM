@@ -1,41 +1,93 @@
 // modules/dialogs/contact-dialog.js
-import { el, rowKV } from './dom-helpers.js';
+// Renders the Contact dialog. Pure DOM, no globals.
 
-/**
- * - contact: { id, companyId, firstName, lastName, email, phone, jobTitle, address* } | undefined
- * - name: string (fallback display)
- */
-export function renderContactDialog({ contactId, resolveContactName, getContactById }) {
-  const name = (contactId && resolveContactName(contactId)) || contactId || '(unknown)';
-  const contact = (typeof getContactById === 'function') ? getContactById(contactId) : undefined;
+export function renderContactDialog(contactId, deps, onClose) {
+  const { bus, getContactById, resolveContactName, resolveCompanyName } = deps || {};
+  const say = (topic, payload = {}) => { try { bus?.emit?.('dialogs.trace', { scope:'contact', topic, ...payload }); } catch {} };
 
-  const dlg = el('dialog', { class: 'crm-dialog', 'aria-label': `Contact ${name}` });
-  dlg.addEventListener('cancel', e => e.preventDefault());
+  say('render.start', { contactId });
 
-  const hdr = el('header', {}, [ el('h3', { text: `Contact – ${name}` }) ]);
+  // Récupération des données
+  const ct = typeof getContactById === 'function' ? (getContactById(contactId) || null) : null;
 
-  const address = [
-    (contact?.addressStreet||''), 
-    (contact?.addressCity||''), 
-    (contact?.addressPostalCode||''), 
-    (contact?.addressCountry||'')
-  ].filter(Boolean).join(', ');
+  // Nom affiché (fallbacks)
+  let displayName = '';
+  if (ct) {
+    displayName = ct.displayName || [ct.firstName || '', ct.lastName || ''].join(' ').trim();
+  }
+  if (!displayName) {
+    displayName = (typeof resolveContactName === 'function' ? resolveContactName(contactId) : '') || '(unknown)';
+  }
 
-  const info = el('div', { class:'crm-meta' }, [
-    rowKV('Contact ID', contact?.id || contactId || ''),
-    rowKV('Company ID', contact?.companyId || ''),
-    rowKV('First name', contact?.firstName || ''),
-    rowKV('Last name', contact?.lastName || ''),
-    rowKV('Email', contact?.email || ''),
-    rowKV('Phone', contact?.phone || ''),
-    rowKV('Job title', contact?.jobTitle || ''),
-    rowKV('Address', address)
+  // Nom société (fallback au resolver)
+  const companyName = (ct && ct.companyId)
+    ? ((typeof resolveCompanyName === 'function' ? resolveCompanyName(ct.companyId) : '') || ct.companyId)
+    : '';
+
+  // --- DOM
+  const dlg = document.createElement('dialog');
+  dlg.className = 'crm-dialog';
+  dlg.setAttribute('aria-label', `Contact ${displayName}`);
+
+  const header = h('header', {}, [
+    h('h3', { text: `Contact – ${displayName}` })
   ]);
 
-  const actions = el('menu', {}, [
-    el('button', { class: 'crm-btn', 'data-role': 'close' }, [document.createTextNode('Close')])
+  const meta = h('div', { class: 'crm-meta' }, [
+    rowKV('Contact ID', (ct?.id || contactId || '')),
+    rowKV('Company ID', (ct?.companyId || '')),
+    rowKV('Company', companyName || ''),
+    rowKV('First name', (ct?.firstName || '')),
+    rowKV('Last name', (ct?.lastName || '')),
+    rowKV('Email', (ct?.email || '')),
+    rowKV('Phone', (ct?.phone || '')),
+    rowKV('Job title', (ct?.jobTitle || '')),
+    rowKV('Address', [
+      (ct?.addressStreet||''),
+      (ct?.addressCity||''),
+      (ct?.addressPostalCode||''),
+      (ct?.addressCountry||'')
+    ].filter(Boolean).join(', '))
   ]);
 
-  dlg.append(hdr, info, actions);
+  const actions = h('menu', {}, [
+    btn('Close', () => { try { onClose?.(); } catch {} })
+  ]);
+
+  dlg.append(header, meta, actions);
+
+  say('render.done', {
+    contactFound: !!ct,
+    displayName,
+    hasCompany: !!ct?.companyId
+  });
+
   return dlg;
+
+  // --- helpers
+  function h(tag, attrs = {}, children = []) {
+    const e = document.createElement(tag);
+    Object.entries(attrs).forEach(([k, v]) => {
+      if (k === 'class') e.className = v;
+      else if (k === 'text') e.textContent = v;
+      else e.setAttribute(k, v);
+    });
+    (children || []).forEach(c => e.appendChild(c));
+    return e;
+  }
+  function rowKV(k, v) {
+    const valNode = (typeof v === 'string') ? document.createTextNode(v) : (v instanceof Node ? v : document.createTextNode(String(v||'')));
+    const wrap = h('div', { class: 'kv' }, [
+      h('div', { class:'kv-k', text:k }),
+      h('div', { class:'kv-v' }, [ valNode ])
+    ]);
+    return wrap;
+  }
+  function btn(label, onClick){
+    const b = document.createElement('button');
+    b.className = 'crm-btn';
+    b.textContent = label;
+    b.addEventListener('click', (e)=>{ e.preventDefault(); onClick?.(); });
+    return b;
+  }
 }
