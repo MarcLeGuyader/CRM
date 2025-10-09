@@ -1,1 +1,30 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Tree View • Tri-state</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="wrap">
+    <header class="banner">
+      <h1>Arborescence (tri-state)</h1>
+      <p class="muted">Démo minimale avec cases à cocher 3 états + ouverture/fermeture dossiers.</p>
+    </header>
 
+    <main class="main">
+      <section class="tree-panel">
+        <div class="tree-header">
+          <h2>Projet</h2>
+          <input id="filter" type="text" placeholder="Filtrer (Entrée pour appliquer)"/>
+        </div>
+        <div id="tree" class="tree" role="tree" aria-label="Arborescence"></div>
+        <div id="sel-count" class="muted small">Sélection : 0 fichiers</div>
+      </section>
+    </main>
+  </div>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
