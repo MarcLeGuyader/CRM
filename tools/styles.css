@@ -57,3 +57,9 @@ pre#log{background:#0b1220;color:#e6edf3;border-radius:8px;padding:10px;max-heig
 .tag.ERROR{background:#b91c1c;color:#fff}
 .muted{color:var(--muted)}
 .small{font-size:12px}
+
+
+/* Alignement propre radios + texte */
+.row.small.radios { gap: 16px; }
+.row.small.radios .radio { display: inline-flex; align-items: center; gap: 6px; }
+.row.small.radios input[type=radio] { margin: 0; }
