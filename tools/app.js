@@ -153,33 +153,74 @@ function expandAll(n){ if(n.type==='dir'){ n.open=true; n.children.forEach(expan
 function collapseAll(n){ if(n.type==='dir'){ n.open=false; n.children.forEach(collapseAll);} }
 
 // Selection JSON tool
+// ---- Utilitaires sélection sûrs (parcours de l'arbre)
+function collectSelectedFilesFromTree(root){
+  const out = [];
+  function walk(n){
+    if(!n) return;
+    if(n.type === 'file'){
+      if(n.checked) out.push(n.path);
+      return;
+    }
+    if(n.children) n.children.forEach(walk);
+  }
+  walk(root);
+  return out;
+}
+
+// ---- Outil JSON de la sélection (plus robuste)
 function generateSelectionJSON(){
-  const files = Array.from(state.selection).sort();
-  const payload = {
-    repo: $('#owner').value.trim() + '/' + $('#repo').value.trim(),
-    branch: $('#branch').value.trim(),
-    generatedAt: new Date().toISOString(),
-    count: files.length,
-    paths: files
-  };
-  $('#json-out').value = JSON.stringify(payload, null, 2);
-  log('INFO', 'JSON généré', {count: files.length});
+  try{
+    // On dérive la vérité depuis l'arbre (fiable sur iPad)
+    const files = collectSelectedFilesFromTree(state.root).sort();
+
+    const payload = {
+      repo: ($('#owner').value.trim() || '') + '/' + ($('#repo').value.trim() || ''),
+      branch: $('#branch').value.trim() || '',
+      generatedAt: new Date().toISOString(),
+      count: files.length,
+      paths: files
+    };
+
+    const txt = JSON.stringify(payload, null, 2);
+    const outEl = $('#json-out');
+    if (outEl) {
+      outEl.value = txt;
+    }
+    log('INFO', 'JSON généré', { count: files.length });
+
+  }catch(e){
+    log('ERROR', 'Génération JSON échouée', { error: String(e) });
+  }
 }
+
 async function copyJSON(){
-  try{ await navigator.clipboard.writeText($('#json-out').value||''); log('INFO','JSON copié'); }catch{}
+  try{
+    const txt = $('#json-out')?.value || '';
+    await navigator.clipboard.writeText(txt);
+    log('INFO', 'JSON copié');
+  }catch(e){
+    log('ERROR', 'Copie JSON échouée', { error: String(e) });
+  }
 }
+
 function downloadJSON(){
-  const text = $('#json-out').value || '';
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(new Blob([text],{type:'application/json;charset=utf-8'}));
-  a.download='selection.json'; a.click();
+  try{
+    const text = $('#json-out')?.value || '';
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type: 'application/json;charset=utf-8' }));
+    a.download = 'selection.json';
+    a.click();
+    log('INFO', 'JSON téléchargé');
+  }catch(e){
+    log('ERROR', 'Téléchargement JSON échoué', { error: String(e) });
+  }
 }
 
-// Wire tools
-$('#btn-gen-json').addEventListener('click', generateSelectionJSON);
-$('#btn-copy-json').addEventListener('click', copyJSON);
-$('#btn-dl-json').addEventListener('click', downloadJSON);
-
+// ---- Listeners (assure la connexion même si le DOM était pas prêt)
+$('#btn-gen-json')?.addEventListener('click', generateSelectionJSON);
+$('#btn-copy-json')?.addEventListener('click', copyJSON);
+$('#btn-dl-json')?.addEventListener('click', downloadJSON);
 // Load repo
 async function load(){
   const o=$('#owner').value.trim(), r=$('#repo').value.trim(), b=$('#branch').value.trim(), t=$('#token').value.trim();
