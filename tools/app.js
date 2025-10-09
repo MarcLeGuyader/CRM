@@ -229,7 +229,7 @@ async function generateSelectionJSON(){
 
     const filesSel = collectSelectedFilesFromTree(state.root).sort();
 
-    // 🆕 Log du mode sélectionné
+    //  Log du mode sélectionné
     log('INFO', `Mode JSON sélectionné : ${mode}`);
     
 
