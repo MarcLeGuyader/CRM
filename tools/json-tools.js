@@ -18,7 +18,49 @@ function safeLog(tag, msg, data) {
 const busyOn  = () => ['#btn-gen-json','#btn-copy-json','#btn-dl-json'].forEach(s=>$(s)&&($(s).disabled=true));
 const busyOff = () => ['#btn-gen-json','#btn-copy-json','#btn-dl-json'].forEach(s=>$(s)&&($(s).disabled=false));
 
-// Génération JSON selon le mode
+/* ========= Helpers locaux (autonomes) ========= */
+const BIN_EXTS = [".png",".jpg",".jpeg",".gif",".svg",".ico",".webp",".pdf",".woff",".woff2",".ttf",".eot",".otf",".zip",".gz",".mp4",".mov",".webm",".mp3",".wav",".7z",".wasm"];
+function isBinaryPath(p){ const L=p.toLowerCase(); return BIN_EXTS.some(ext => L.endsWith(ext)); }
+
+function b64ToUint8(b64){
+  const bin = atob(b64);
+  const len = bin.length;
+  const bytes = new Uint8Array(len);
+  for (let i=0;i<len;i++) bytes[i] = bin.charCodeAt(i) & 0xff;
+  return bytes;
+}
+function decodeBase64ToText(b64){
+  const bytes = b64ToUint8(b64);
+  try { return new TextDecoder("utf-8", {fatal:false}).decode(bytes); }
+  catch {
+    let bin = ""; for (let i=0;i<bytes.length;i++) bin += String.fromCharCode(bytes[i]);
+    try { return decodeURIComponent(escape(bin)); } catch { return bin; }
+  }
+}
+
+/* ========= Fetch de contenu (local, via TV.ghBase/TV.ghHeaders) ========= */
+async function fetchFileWithContent({owner, repo, branch, token, path}){
+  const url = `${TV.ghBase(owner,repo)}/contents/${encodeURIComponent(path)}?ref=${encodeURIComponent(branch)}`;
+  const res = await fetch(url, { headers: TV.ghHeaders(token) });
+  if (res.status === 404) throw new Error(`Missing: ${path}`);
+  if (!res.ok) throw new Error(`GET contents ${path} → ${res.status}`);
+
+  const j = await res.json(); // { content (base64), size, encoding, ... }
+  const size = j.size ?? (j.content ? b64ToUint8(j.content.replace(/\n/g,"")).length : 0);
+  const binary = isBinaryPath(path);
+
+  if (binary) {
+    // garder base64
+    const content = (j.content || "").replace(/\n/g,"");
+    return { path, type:"binary", size, content, contentEncoding: 'base64' };
+  } else {
+    const b64 = (j.content || "").replace(/\n/g,"");
+    const text = decodeBase64ToText(b64);
+    return { path, type:"text", size: text.length, content: text };
+  }
+}
+
+/* ========= Génération JSON selon le mode ========= */
 async function generateSelectionJSON(){
   safeLog('INFO', '[enter] generateSelectionJSON()');
 
@@ -44,7 +86,6 @@ async function generateSelectionJSON(){
     $('#status').textContent = 'Génération en cours…';
 
     if (filesSel.length === 0) {
-      // Sortie minimale selon le mode
       if (mode === 'tree') {
         $('#json-out').value = '[]';
       } else {
@@ -59,20 +100,19 @@ async function generateSelectionJSON(){
     }
 
     if (mode === 'tree') {
-      // Liste simple
+      // Liste simple (chemins uniquement)
       const txt = JSON.stringify(filesSel, null, 2);
       $('#json-out').value = txt;
       safeLog('INFO','JSON (arborescence) généré', { count: filesSel.length });
       return;
     }
 
-    // Mode "Complet" : télécharge contenu de chaque fichier
+    // Mode "Complet" : télécharger le contenu de chaque fichier
     const outFiles = [];
     let done = 0;
     for (const p of filesSel){
       try{
-        const f = await TV.fetchFileWithContent({ owner, repo, branch, token, path: p });
-        if (f.type === 'binary' && !('contentEncoding' in f)) f.contentEncoding = 'base64';
+        const f = await fetchFileWithContent({ owner, repo, branch, token, path: p });
         outFiles.push(f);
         done++;
         if (done % 10 === 0) safeLog('INFO','Progress', { done, total: filesSel.length });
@@ -99,7 +139,7 @@ async function generateSelectionJSON(){
   }
 }
 
-// Copie / téléchargement
+/* ========= Copie / téléchargement ========= */
 async function copyJSON(){
   try{
     const txt = $('#json-out')?.value || '';
@@ -122,12 +162,12 @@ function downloadJSON(){
   }
 }
 
-// Brancher les boutons (JSON tool only)
+/* ========= Brancher les boutons (JSON tool only) ========= */
 $('#btn-gen-json')?.addEventListener('click', generateSelectionJSON);
 $('#btn-copy-json')?.addEventListener('click', copyJSON);
 $('#btn-dl-json')?.addEventListener('click', downloadJSON);
 
-// Sentinelles (debug utile)
+/* ========= Sentinelles (debug utile) ========= */
 window.addEventListener('unhandledrejection', e=>{
   safeLog('ERROR', 'unhandledrejection', { reason: String(e?.reason) });
 });
