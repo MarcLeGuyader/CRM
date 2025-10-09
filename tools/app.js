@@ -1,25 +1,28 @@
-// app.js — TreeView + Tri-état + Logs + API publique TV (aucun code JSON ici)
+// app.js — TreeView (version précédente stable) + Tri-état + Console + API TV (sans logique JSON)
 
-// ---------- Base UI helpers ----------
+// ---------- Helpers ----------
 const $ = s => document.querySelector(s);
 const state = { root: null, selection: new Set() };
 
 // ---------- Console ----------
 const logEl = $('#log');
 function log(tag, msg, data=null){
-  const line = document.createElement('div'); line.className = 'log-line';
+  const line  = document.createElement('div'); line.className = 'log-line';
   const badge = document.createElement('span'); badge.className = 'tag ' + (tag||'INFO'); badge.textContent = tag || 'INFO';
-  const text = document.createElement('span'); text.textContent = ' ' + msg + (data ? ' ' + JSON.stringify(data) : '');
+  const text  = document.createElement('span'); text.textContent = ' ' + msg + (data ? ' ' + JSON.stringify(data) : '');
   line.append(badge, text); logEl.appendChild(line); logEl.scrollTop = logEl.scrollHeight;
 }
 $('#btn-log-clear')?.addEventListener('click', ()=>{ logEl.textContent=''; });
-$('#btn-log-copy')?.addEventListener('click', async ()=>{ const t = logEl.innerText; try{ await navigator.clipboard.writeText(t); }catch{} });
-$('#btn-log-dl')?.addEventListener('click', ()=>{ const blob=new Blob([logEl.innerText],{type:'text/plain'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='console.log.txt'; a.click(); });
+$('#btn-log-copy') ?.addEventListener('click', async ()=>{ const t = logEl.innerText; try{ await navigator.clipboard.writeText(t); }catch{} });
+$('#btn-log-dl')   ?.addEventListener('click', ()=>{
+  const blob=new Blob([logEl.innerText],{type:'text/plain'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='console.log.txt'; a.click();
+});
 
-// ---------- GitHub API (Bearer conseillé pour PAT fine-grain) ----------
-const ghBase   = (o,r)=>`https://api.github.com/repos/${o}/${r}`;
-const ghHeaders= (t)=> t ? { Accept:'application/vnd.github+json', Authorization:`Bearer ${t}` }
-                         : { Accept:'application/vnd.github+json' };
+// ---------- GitHub API ----------
+const ghBase    = (o,r)=>`https://api.github.com/repos/${o}/${r}`;
+const ghHeaders = (t)=> t ? { Accept:'application/vnd.github+json', Authorization:`Bearer ${t}` }
+                          : { Accept:'application/vnd.github+json' };
 
 async function getTree(owner, repo, branch, token){
   log('INFO', `Fetch refs ${branch}`);
@@ -62,11 +65,12 @@ function buildHierarchy(paths){
   return root;
 }
 
-// ---------- Tri-state helpers ----------
+// ---------- Tri-state ----------
 function setNodeChecked(n, checked){
   n.checked = checked; n.ind = false;
   if(n.type==='file'){
-    if(checked) state.selection.add(n.path); else state.selection.delete(n.path);
+    if(checked) state.selection.add(n.path);
+    else        state.selection.delete(n.path);
     return;
   }
   if(n.children) n.children.forEach(ch => setNodeChecked(ch, checked));
@@ -92,7 +96,7 @@ function getDirVisualState(n){
 }
 function updateSelCount(){ $('#sel-count').textContent = `Sélection : ${state.selection.size} fichiers`; }
 
-// ---------- Render (tri-état fiable iPad/Safari) ----------
+// ---------- Render (version précédente) ----------
 function renderTree(root, container){
   container.innerHTML = '';
   const ul = document.createElement('ul'); ul.className = 'branch';
@@ -101,16 +105,19 @@ function renderTree(root, container){
     const li  = document.createElement('li');
     const row = document.createElement('div'); row.className = 'node';
 
+    // Chevron / point
     const toggle = document.createElement('span'); toggle.className='toggle';
     toggle.textContent = n.type==='dir' ? (n.open ? '▼' : '►') : '•';
     if(n.type==='dir'){ toggle.addEventListener('click', ()=>{ n.open=!n.open; renderTree(root,container); }); }
 
+    // Checkbox (tri-état)
     const cb = document.createElement('input'); cb.type='checkbox'; cb.checked = !!n.checked;
-    const syncInd = ()=>{ cb.indeterminate = !!n.ind; };
+    const syncInd = ()=>{ cb.indeterminate = !!n.ind; }; // Safari/iPad needs after-DOM
 
+    // Cycle tri-état pour répertoires (click)
     cb.addEventListener('click',(ev)=>{
       if(n.type==='file') return;
-      ev.preventDefault(); // on gère le cycle des répertoires nous-mêmes
+      ev.preventDefault();
       const now = getDirVisualState(n);
       if(now==='partial') setNodeChecked(n,true);
       else if(now==='all') setNodeChecked(n,false);
@@ -118,20 +125,24 @@ function renderTree(root, container){
       refreshTriState(root); renderTree(root,container);
     });
 
+    // Fichiers → simple change
     cb.addEventListener('change',()=>{
-      if(n.type!=='file') return; // répertoires gérés via 'click'
+      if(n.type!=='file') return;
       setNodeChecked(n, cb.checked);
       refreshTriState(root);
       renderTree(root,container);
     });
 
+    // Nom
     const name = document.createElement('span');
     name.className = 'name ' + (n.type==='dir'?'folder':'file');
     name.textContent = n.name || '/';
     name.style.display = 'block';
 
-    row.append(toggle, cb, name); li.appendChild(row);
+    row.append(toggle, cb, name);
+    li.appendChild(row);
 
+    // Enfants
     if(n.type==='dir' && n.open && n.children && n.children.size){
       const ul2 = document.createElement('ul'); ul2.className = 'branch';
       const sorted = Array.from(n.children.values())
@@ -140,7 +151,7 @@ function renderTree(root, container){
       li.appendChild(ul2);
     }
 
-    // indeterminate doit être posé APRÈS insertion DOM (Safari/iPad)
+    // Important: indeterminate après insertion DOM
     queueMicrotask(syncInd);
     return li;
   }
@@ -157,7 +168,7 @@ function renderTree(root, container){
 function expandAll(n){ if(n.type==='dir'){ n.open=true;  n.children.forEach(expandAll);} }
 function collapseAll(n){ if(n.type==='dir'){ n.open=false; n.children.forEach(collapseAll);} }
 
-// ---------- Sélection sûre depuis l'arbre (utilisée par les outils externes) ----------
+// ---------- Sélection (externe) ----------
 function collectSelectedFilesFromTree(root){
   const out = [];
   (function walk(n){
@@ -168,7 +179,7 @@ function collectSelectedFilesFromTree(root){
   return out;
 }
 
-// ---------- Chargement / Actions banner ----------
+// ---------- Chargement ----------
 async function load(){
   const owner = $('#owner').value.trim();
   const repo  = $('#repo').value.trim();
@@ -194,10 +205,10 @@ $('#btn-load')    ?.addEventListener('click', load);
 $('#btn-expand')  ?.addEventListener('click', ()=>{ if(state.root){ expandAll(state.root);   renderTree(state.root,$('#tree')); log('INFO','Tout ouvrir'); } });
 $('#btn-collapse')?.addEventListener('click', ()=>{ if(state.root){ collapseAll(state.root); renderTree(state.root,$('#tree')); log('INFO','Tout fermer'); } });
 
-// ---------- Auto-load par défaut ----------
+// ---------- Auto-load ----------
 load();
 
-// ---------- API publique pour les autres outils (JSON, deploy, cleaner, …) ----------
+// ---------- API publique ----------
 export const TV = {
   $, state, log,
   ghBase, ghHeaders,
@@ -205,4 +216,4 @@ export const TV = {
   refreshTriState, renderTree,
   collectSelectedFilesFromTree,
 };
-window.TV = TV; // pour accès simple depuis d'autres scripts (GitHub Pages / iPad)
+window.TV = TV;
