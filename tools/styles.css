@@ -41,8 +41,24 @@ button:disabled{opacity:.6;cursor:not-allowed}
 .branch{list-style:none;margin:0;padding-left:16px;border-left:1px dashed #e2e8f0}
 .branch>li{margin:2px 0}
 .node{display:flex;align-items:center;gap:8px;padding:2px 6px;color:#0b1320}
-.node .toggle{width:16px;text-align:center;cursor:pointer;user-select:none}
-.node .name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:calc(100% - 80px);display:inline-block}
+.node .toggle{
+  width:16px;
+  text-align:center;
+  cursor:pointer;
+  user-select:none;
+  flex:0 0 16px;          /* fixe la largeur du chevron en flex */
+}
+.node input[type="checkbox"]{
+  flex:0 0 auto;          /* évite que la checkbox s'étire */
+}
+.node .name{
+  flex:1 1 auto;          /* occupe l'espace restant */
+  min-width:0;            /* indispensable pour l'ellipsis en flex (iPad/Safari) */
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  display:block;
+}
 .folder{font-weight:600}
 
 /* Radios (alignement propre input/label) */
