@@ -10,7 +10,7 @@
   <div class="wrap">
     <header class="banner">
       <h1>Arborescence GitHub</h1>
-      <p class="muted small">Lecture directe via <code>/git/trees/:branch?recursive=1</code> – public repo</p>
+      <p class="muted small">Lecture via <code>/git/trees/:branch?recursive=1</code> — repo public. PAT facultatif.</p>
       <div class="grid">
         <label>Owner
           <input id="owner" type="text" value="MarcLeGuyader" />
@@ -21,11 +21,13 @@
         <label>Branch
           <input id="branch" type="text" value="main" />
         </label>
-        <div class="row">
-          <button id="btn-load" class="primary">Charger</button>
-          <input id="filter" type="text" placeholder="Filtrer (Entrée)"/>
-          <span id="status" class="status">Prêt.</span>
-        </div>
+        <label>GitHub Token (PAT)
+          <input id="token" type="password" placeholder="github_pat_…" />
+        </label>
+      </div>
+      <div class="row">
+        <button id="btn-load" class="primary">Charger</button>
+        <span id="status" class="status">Prêt.</span>
       </div>
     </header>
 
