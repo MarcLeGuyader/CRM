@@ -13,7 +13,7 @@
       <p class="muted small">
         Tri-state (coché / partiel / non coché). Lecture via <code>/git/trees/:branch?recursive=1</code> — PAT facultatif.
       </p>
-      <div class="grid">
+      <div class="grid grid-4">
         <label>Owner
           <input id="owner" type="text" value="MarcLeGuyader" />
         </label>
@@ -42,26 +42,56 @@
       </section>
 
       <section class="tools-panel">
-        <h3>Outil JSON de la sélection</h3>
-
-  <div class="row small radios">
-  <label class="radio">
-    <input type="radio" name="json-mode" value="full" checked>
-    <span>Complet</span>
-  </label>
-  <label class="radio">
-    <input type="radio" name="json-mode" value="tree">
-    <span>Arborescence</span>
-  </label>
-</div>     
-        
-        
-        <div class="row">
-          <button id="btn-gen-json">Générer JSON</button>
-          <button id="btn-copy-json">Copier</button>
-          <button id="btn-dl-json">Télécharger</button>
+        <div class="tabs" role="tablist" aria-label="Outils">
+          <button class="tab-btn" role="tab" aria-selected="true" aria-controls="tab-json" id="tabbtn-json">JSON</button>
+          <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-clean" id="tabbtn-clean">Clean</button>
+          <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-deploy" id="tabbtn-deploy">Deploy</button>
         </div>
-        <textarea id="json-out" placeholder="Appuie sur 'Générer JSON' pour voir la sélection…" readonly></textarea>
+
+        <!-- Onglet JSON -->
+        <div id="tab-json" class="tab-panel" role="tabpanel" aria-labelledby="tabbtn-json">
+          <h3>Outil JSON de la sélection</h3>
+
+          <div class="row small radios">
+            <label class="radio">
+              <input type="radio" name="json-mode" value="full" checked>
+              <span>Complet</span>
+            </label>
+            <label class="radio">
+              <input type="radio" name="json-mode" value="tree">
+              <span>Arborescence</span>
+            </label>
+          </div>
+
+          <div class="row">
+            <button id="btn-gen-json">Générer JSON</button>
+            <button id="btn-copy-json">Copier</button>
+            <button id="btn-dl-json">Télécharger</button>
+          </div>
+          <textarea id="json-out" placeholder="Appuie sur 'Générer JSON' pour voir la sélection…" readonly></textarea>
+        </div>
+
+        <!-- Onglet Clean (placeholder) -->
+        <div id="tab-clean" class="tab-panel" role="tabpanel" aria-labelledby="tabbtn-clean" hidden>
+          <h3>Outil de nettoyage du dépôt</h3>
+          <p class="small muted">À venir : analyse et suppression sélective de fichiers du repo.</p>
+          <div class="row">
+            <button id="btn-clean-analyze">Analyser (dry-run)</button>
+            <button id="btn-clean-apply">Nettoyer</button>
+          </div>
+          <textarea id="clean-out" placeholder="Résultats ou logs du nettoyage…" readonly></textarea>
+        </div>
+
+        <!-- Onglet Deploy (placeholder) -->
+        <div id="tab-deploy" class="tab-panel" role="tabpanel" aria-labelledby="tabbtn-deploy" hidden>
+          <h3>Outil de déploiement</h3>
+          <p class="small muted">À venir : déploiement automatique de fichiers ou bundles vers le repo cible.</p>
+          <div class="row">
+            <button id="btn-deploy-zip">Déployer ZIP</button>
+            <button id="btn-deploy-single">Déployer fichier unique</button>
+          </div>
+          <textarea id="deploy-out" placeholder="Résultats ou logs du déploiement…" readonly></textarea>
+        </div>
       </section>
     </main>
 
@@ -78,7 +108,39 @@
     </section>
   </div>
 
-  <script type="module" src="./app.js?v=10"></script>
-<script type="module" src="./json-tools.js?v=10"></script>
+  <!-- Scripts -->
+  <script type="module" src="./app.js?v=12"></script>
+  <script type="module" src="./json-tools.js?v=12"></script>
+
+  <!-- Tabs controller -->
+  <script>
+    (function tabsInit(){
+      const tabButtons = Array.from(document.querySelectorAll('.tab-btn[role="tab"]'));
+      const panels = tabButtons.map(btn => document.getElementById(btn.getAttribute('aria-controls')));
+
+      function activate(idx, pushHash=true){
+        tabButtons.forEach((b,i)=> b.setAttribute('aria-selected', String(i===idx)));
+        panels.forEach((p,i)=> i===idx ? p.removeAttribute('hidden') : p.setAttribute('hidden','') );
+        if (pushHash) {
+          const id = tabButtons[idx]?.id?.replace('tabbtn-','') || 'json';
+          try { history.replaceState(null, '', `#tab=${id}`); } catch {}
+        }
+      }
+      tabButtons.forEach((btn,i)=>{
+        btn.addEventListener('click', ()=> activate(i));
+        btn.addEventListener('keydown', (e)=>{
+          if(e.key==='ArrowRight'){ e.preventDefault(); activate((i+1)%tabButtons.length); tabButtons[(i+1)%tabButtons.length].focus(); }
+          if(e.key==='ArrowLeft'){  e.preventDefault(); activate((i-1+tabButtons.length)%tabButtons.length); tabButtons[(i-1+tabButtons.length)%tabButtons.length].focus(); }
+        });
+      });
+      const m = location.hash.match(/tab=([a-z0-9_-]+)/i);
+      if (m) {
+        const id = m[1];
+        const idx = tabButtons.findIndex(b => b.id === `tabbtn-${id}`);
+        if (idx >= 0) { activate(idx, false); return; }
+      }
+      activate(0, false);
+    })();
+  </script>
 </body>
 </html>
