@@ -3,14 +3,16 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Tree View • GitHub (CRM)</title>
+  <title>Tree View • GitHub (CRM) • Tri-state</title>
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
   <div class="wrap">
     <header class="banner">
       <h1>Arborescence GitHub</h1>
-      <p class="muted small">Lecture via <code>/git/trees/:branch?recursive=1</code> — repo public. PAT facultatif.</p>
+      <p class="muted small">
+        Tri-state (coché / partiel / non coché). Lecture via <code>/git/trees/:branch?recursive=1</code> — PAT facultatif.
+      </p>
       <div class="grid">
         <label>Owner
           <input id="owner" type="text" value="MarcLeGuyader" />
@@ -27,6 +29,10 @@
       </div>
       <div class="row">
         <button id="btn-load" class="primary">Charger</button>
+        <button id="btn-expand">Tout ouvrir</button>
+        <button id="btn-collapse">Tout fermer</button>
+        <button id="btn-all">Tout cocher</button>
+        <button id="btn-none">Tout décocher</button>
         <span id="status" class="status">Prêt.</span>
       </div>
     </header>
