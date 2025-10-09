@@ -229,6 +229,10 @@ async function generateSelectionJSON(){
 
     const filesSel = collectSelectedFilesFromTree(state.root).sort();
 
+    // 🆕 Log du mode sélectionné
+    log('INFO', `Mode JSON sélectionné : ${mode}`);
+    
+
     if (mode === 'tree') {
       // --- sortie minimaliste: juste la liste
       const txt = JSON.stringify(filesSel, null, 2);
