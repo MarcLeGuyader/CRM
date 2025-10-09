@@ -2,6 +2,9 @@ const $ = s => document.querySelector(s);
 const state = { root: null, selection: new Set() };
 
 // Console helpers
+
+
+
 const logEl = $('#log');
 function log(tag, msg, data=null){
   const line = document.createElement('div'); line.className = 'log-line';
@@ -9,6 +12,56 @@ function log(tag, msg, data=null){
   const text = document.createElement('span'); text.textContent = ' ' + msg + (data ? ' ' + JSON.stringify(data) : '');
   line.append(badge, text); logEl.appendChild(line); logEl.scrollTop = logEl.scrollHeight;
 }
+
+
+// --- Helpers type & decoding
+const BIN_EXTS = [".png",".jpg",".jpeg",".gif",".svg",".ico",".webp",".pdf",".woff",".woff2",".ttf",".eot",".otf",".zip",".gz",".mp4",".mov",".webm",".mp3",".wav",".7z",".wasm"];
+function isBinaryPath(p){ const L=p.toLowerCase(); return BIN_EXTS.some(ext => L.endsWith(ext)); }
+
+function b64ToUint8(b64){
+  const bin = atob(b64);
+  const len = bin.length;
+  const bytes = new Uint8Array(len);
+  for (let i=0;i<len;i++) bytes[i] = bin.charCodeAt(i) & 0xff;
+  return bytes;
+}
+function decodeBase64ToText(b64){
+  const bytes = b64ToUint8(b64);
+  try { return new TextDecoder("utf-8", {fatal:false}).decode(bytes); }
+  catch { // fallback old-school
+    let bin = ""; for (let i=0;i<bytes.length;i++) bin += String.fromCharCode(bytes[i]);
+    try { return decodeURIComponent(escape(bin)); } catch { return bin; }
+  }
+}
+
+// --- GitHub "contents" fetch (returns {path, type, size, content})
+async function fetchFileWithContent({owner, repo, branch, token, path}){
+  const url = `${ghBase(owner,repo)}/contents/${encodeURIComponent(path)}?ref=${encodeURIComponent(branch)}`;
+  const res = await fetch(url, { headers: ghHeaders(token) });
+  if (res.status === 404) throw new Error(`Missing: ${path}`);
+  if (!res.ok) throw new Error(`GET contents ${path} → ${res.status}`);
+
+  const j = await res.json(); // { content (base64), size, encoding, ... }
+  const size = j.size ?? (j.content ? b64ToUint8(j.content.replace(/\n/g,"")).length : 0);
+  const binary = isBinaryPath(path);
+  let content;
+
+  if (binary) {
+    // keep base64 (compact, standard)
+    content = (j.content || "").replace(/\n/g,"");
+    return { path, type:"binary", size, content };
+  } else {
+    // decode to UTF-8 string
+    const b64 = (j.content || "").replace(/\n/g,"");
+    content = decodeBase64ToText(b64);
+    return { path, type:"text", size: content.length, content };
+  }
+}
+
+
+
+
+
 $('#btn-log-clear').addEventListener('click', ()=>{ logEl.textContent=''; });
 $('#btn-log-copy').addEventListener('click', async ()=>{ const t = logEl.innerText; try{ await navigator.clipboard.writeText(t); }catch{} });
 $('#btn-log-dl').addEventListener('click', ()=>{ const blob=new Blob([logEl.innerText],{type:'text/plain'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='console.log.txt'; a.click(); });
@@ -154,43 +207,62 @@ function collapseAll(n){ if(n.type==='dir'){ n.open=false; n.children.forEach(co
 
 // Selection JSON tool
 // ---- Utilitaires sélection sûrs (parcours de l'arbre)
+// Utilitaire sûr : reconstitue la sélection depuis l'arbre
 function collectSelectedFilesFromTree(root){
   const out = [];
   function walk(n){
     if(!n) return;
-    if(n.type === 'file'){
-      if(n.checked) out.push(n.path);
-      return;
-    }
+    if(n.type === 'file'){ if(n.checked) out.push(n.path); return; }
     if(n.children) n.children.forEach(walk);
   }
   walk(root);
   return out;
 }
 
-// ---- Outil JSON de la sélection (plus robuste)
-function generateSelectionJSON(){
+async function generateSelectionJSON(){
   try{
-    // On dérive la vérité depuis l'arbre (fiable sur iPad)
-    const files = collectSelectedFilesFromTree(state.root).sort();
+    const mode = (document.querySelector('input[name="json-mode"]:checked')?.value) || 'full';
+    const owner = $('#owner').value.trim();
+    const repo  = $('#repo').value.trim();
+    const branch= $('#branch').value.trim() || 'main';
+    const token = $('#token').value.trim() || null;
 
-    const payload = {
-      repo: ($('#owner').value.trim() || '') + '/' + ($('#repo').value.trim() || ''),
-      branch: $('#branch').value.trim() || '',
-      generatedAt: new Date().toISOString(),
-      count: files.length,
-      paths: files
-    };
+    const filesSel = collectSelectedFilesFromTree(state.root).sort();
 
-    const txt = JSON.stringify(payload, null, 2);
-    const outEl = $('#json-out');
-    if (outEl) {
-      outEl.value = txt;
+    if (mode === 'tree') {
+      // --- sortie minimaliste: juste la liste
+      const txt = JSON.stringify(filesSel, null, 2);
+      $('#json-out').value = txt;
+      log('INFO','JSON (arborescence) généré', { count: filesSel.length });
+      return;
     }
-    log('INFO', 'JSON généré', { count: files.length });
+
+    // --- mode "Complet": on télécharge le contenu de chaque fichier
+    const outFiles = [];
+    let done = 0;
+    for (const p of filesSel){
+      try{
+        const f = await fetchFileWithContent({ owner, repo, branch, token, path: p });
+        outFiles.push(f);
+        done++;
+        if (done % 10 === 0) log('INFO','Progress', { done, total: filesSel.length });
+      }catch(e){
+        log('ERROR', `Échec contenu: ${p}`, { error: String(e) });
+      }
+    }
+
+    const bundle = {
+      repo: `${owner}/${repo}`,
+      branch,
+      generatedAt: new Date().toISOString(),
+      totalFiles: outFiles.length,
+      files: outFiles
+    };
+    $('#json-out').value = JSON.stringify(bundle, null, 2);
+    log('INFO','JSON (complet) généré', { total: outFiles.length });
 
   }catch(e){
-    log('ERROR', 'Génération JSON échouée', { error: String(e) });
+    log('ERROR','Génération JSON échouée', { error: String(e) });
   }
 }
 
