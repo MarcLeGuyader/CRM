@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Tree View • GitHub (CRM) • Tri-state</title>
+  <title>Tree View • GitHub (CRM) • Tri-state + Console</title>
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
@@ -28,12 +28,10 @@
         </label>
       </div>
       <div class="row">
-        <button id="btn-load" class="primary">Charger</button>
+        <button id="btn-load" class="primary">Recharger</button>
         <button id="btn-expand">Tout ouvrir</button>
         <button id="btn-collapse">Tout fermer</button>
-        <button id="btn-all">Tout cocher</button>
-        <button id="btn-none">Tout décocher</button>
-        <span id="status" class="status">Prêt.</span>
+        <span id="status" class="status">Chargement automatique…</span>
       </div>
     </header>
 
@@ -42,7 +40,29 @@
         <div id="tree" class="tree" role="tree" aria-label="Arborescence"></div>
         <div id="sel-count" class="muted small">Sélection : 0 fichiers</div>
       </section>
+
+      <section class="tools-panel">
+        <h3>Outil JSON de la sélection</h3>
+        <div class="row">
+          <button id="btn-gen-json">Générer JSON</button>
+          <button id="btn-copy-json">Copier</button>
+          <button id="btn-dl-json">Télécharger</button>
+        </div>
+        <textarea id="json-out" placeholder="Appuie sur 'Générer JSON' pour voir la sélection…" readonly></textarea>
+      </section>
     </main>
+
+    <section class="console">
+      <div class="console-header">
+        <h3>Console</h3>
+        <div class="row">
+          <button id="btn-log-clear">Effacer</button>
+          <button id="btn-log-copy">Copier</button>
+          <button id="btn-log-dl">Télécharger</button>
+        </div>
+      </div>
+      <pre id="log"></pre>
+    </section>
   </div>
 
   <script type="module" src="./app.js"></script>
