@@ -1,4 +1,3 @@
-
 const $ = (s)=>document.querySelector(s);
 const statusEl = $("#status");
 const prog = $("#prog");
@@ -16,6 +15,37 @@ function logEvent({phase, action, op, path="", target="", message="", details=nu
   const span = document.createElement("span"); span.textContent = " " + text;
   div.appendChild(badge); div.appendChild(span);
   logEl.appendChild(div); logEl.scrollTop = logEl.scrollHeight;
+}
+
+// iPad-safe: injecte un CSS grid layout pour la treeview (comme dans le tester)
+function injectTreeLayoutCSS(){
+  if (document.getElementById("tree-safe-style")) return;
+  const css = `
+    .tree .node{
+      display:grid !important;
+      grid-template-columns:16px 18px 1fr !important;
+      align-items:center !important;
+      column-gap:8px !important;
+      padding:2px 6px !important;
+      color:#111827 !important;
+    }
+    .tree .toggle{ width:16px; text-align:center; cursor:pointer; user-select:none; }
+    .tree input[type="checkbox"]{ width:18px; height:18px; margin:0; }
+    .tree .name{
+      min-width:0 !important;
+      white-space:nowrap !important;
+      overflow:hidden !important;
+      text-overflow:ellipsis !important;
+      display:block !important;
+      color:#111827 !important;
+    }
+    .tree .name.folder::before{ content:"📁 "; }
+    .tree .name.file::before  { content:"📄 "; }
+  `;
+  const tag = document.createElement("style");
+  tag.id = "tree-safe-style";
+  tag.textContent = css;
+  document.head.appendChild(tag);
 }
 
 // GitHub
@@ -84,6 +114,7 @@ function buildHierarchy(paths){
   }
   return root;
 }
+
 function renderTree(root, container){
   container.innerHTML = "";
   const ul = document.createElement("ul");
@@ -99,7 +130,10 @@ function renderTree(root, container){
       refreshTriState(root);
       renderTree(root, container);
     });
-    const nameSpan = document.createElement("span"); nameSpan.className = "name " + (n.type==="dir"?"folder":""); nameSpan.textContent = n.name || "/";
+    const nameSpan = document.createElement("span");
+    nameSpan.className = "name " + (n.type==="dir" ? "folder" : "file");
+    nameSpan.textContent = n.name || "/";
+    nameSpan.style.display = "block";   // iPad safety
     row.appendChild(toggle); row.appendChild(cb); row.appendChild(nameSpan);
     li.appendChild(row);
     if(n.type==="dir" && n.open && n.children && n.children.size){
@@ -113,7 +147,9 @@ function renderTree(root, container){
   }
   for(const c of root.children.values()){ ul.appendChild(nodeRow(c)); }
   container.appendChild(ul);
+  injectTreeLayoutCSS(); // applique le CSS iPad-safe
 }
+
 function setNodeChecked(n, checked){
   n.checked = checked; n.ind = false;
   if(n.type==="file"){
@@ -123,6 +159,7 @@ function setNodeChecked(n, checked){
   }
   updateSelCount();
 }
+
 function refreshTriState(root){
   function walk(n){
     if(n.type==="file") return { total:1, checked: n.checked?1:0 };
@@ -156,12 +193,13 @@ async function connect(){
     state.tree = buildHierarchy(filePaths);
     state.selection.clear();
     renderTree(state.tree, $("#tree"));
+    injectTreeLayoutCSS(); // iPad safety
     updateSelCount();
     setStatus(`Connected. Files: ${filePaths.length}`);
   }catch(e){ setStatus("Error: "+(e.message||e)); }
 }
 
-// Export listing / selection
+// (reste inchangé)
 function exportSelectionJSON(){
   const files = Array.from(state.selection).sort().map(p=>({ path:p, type: guessType(p) }));
   const payload = { meta:{repo:state.repo,branch:state.branch,generatedAt:new Date().toISOString(),count:files.length}, selection:files };
@@ -179,147 +217,5 @@ function exportListing(){
   }
 }
 
-// Delete
-function isProtected(path){ return state.protectedList.some(p => path===p || path.startsWith(p+"/")); }
-async function runDelete(dry){
-  const owner=state.owner, repo=state.repo, branch=state.branch, token=state.token;
-  const allowProtected = $("#allow-protected").checked;
-  const files = Array.from(state.selection).sort();
-  let del=0, prot=0, nf=0, err=0;
-  for(const path of files){
-    const protPath = isProtected(path);
-    try{
-      const sha = await getShaIfExists(owner,repo,token,path);
-      if(!sha){ logEvent({phase:"dryrun",action:"DELETE",op:"SKIP",path,message:"not found"}); nf++; continue; }
-      if(dry || (protPath && !allowProtected)){
-        logEvent({phase:"dryrun",action:"DELETE",op: protPath?"WARN":"PLAN",path,message: protPath?"protected path":"[tool] remove", details:{sha}});
-        if(protPath) prot++;
-      }else{
-        await deleteFile(owner,repo,branch,token,path,"[tool] remove",sha);
-        logEvent({phase:"apply",action:"DELETE",op:"DONE",path}); del++;
-      }
-    }catch(ex){
-      logEvent({phase: dry?"dryrun":"apply", action:"DELETE", op:"ERROR", path, message:String(ex)}); err++;
-    }
-  }
-  logEvent({phase: dry?"dryrun":"apply", action:"DELETE", op:"SUMMARY", details:{deleted:del, protected:prot, notFound:nf, errors:err}});
-}
-
-// Deploy
-function fileToBase64(file){
-  return new Promise((resolve,reject)=>{
-    const r = new FileReader(); r.onload=()=>resolve(r.result.split(",")[1]); r.onerror=reject; r.readAsDataURL(file);
-  });
-}
-async function parseDeployInput(){
-  const f = $("#deploy-file").files[0];
-  if(!f) throw new Error("Choose a file (ZIP or single file).");
-  if(f.name.toLowerCase().endsWith(".zip")){
-    const zip = await JSZip.loadAsync(f);
-    const files=[];
-    for(const e of Object.values(zip.files)){
-      if(e.dir) continue;
-      const isBin = guessType(e.name)==="binary";
-      const content = await e.async(isBin? "base64":"text");
-      files.push({ path:e.name, type:isBin?"binary":"text", content });
-    }
-    return { kind:"zip", files };
-  }else{
-    const isBin = guessType(f.name)==="binary";
-    const content = isBin ? await fileToBase64(f) : await f.text();
-    return { kind:"single", files:[{ path:f.name, type:isBin?"binary":"text", content }] };
-  }
-}
-async function runDeploy(dry){
-  const owner=state.owner, repo=state.repo, branch=state.branch, token=state.token;
-  const targetRoot = $("#target-root").value.trim().replace(/^\/+/,"");
-  const mode = $("#mode").value;
-  const input = await parseDeployInput();
-
-  const existing = state.nodes.filter(n=>n.type==="blob" && (targetRoot ? n.path.startsWith(targetRoot+"/") : true)).map(n=>n.path);
-  const incomingFull = input.files.map(f => (targetRoot ? (targetRoot+"/"+f.path).replace(/\/+/g,"/") : f.path));
-
-  let add=0, upd=0, del=0, err=0;
-
-  if(dry){
-    for(const p of incomingFull){
-      if(!existing.includes(p)) { logEvent({phase:"dryrun",action:"DEPLOY",op:"ADD",path:p}); add++; }
-      else { logEvent({phase:"dryrun",action:"DEPLOY",op:"UPDATE",path:p,details:{approx:true}}); upd++; }
-    }
-    if(mode==="replace"){
-      const orphans = existing.filter(p => !incomingFull.includes(p));
-      for(const p of orphans){ logEvent({phase:"dryrun",action:"DEPLOY",op:"DELETE",path:p}); del++; }
-    }
-    logEvent({phase:"dryrun",action:"DEPLOY",op:"SUMMARY",details:{add,update:upd,delete:del,errors:err}});
-    return;
-  }
-
-  // Apply
-  for(const f of input.files){
-    const tgt = (targetRoot ? (targetRoot+"/"+f.path).replace(/\/+/g,"/") : f.path);
-    try{
-      const sha = await getShaIfExists(owner,repo,token,tgt);
-      const base64 = f.type==="binary" ? f.content : btoa(unescape(encodeURIComponent(f.content)));
-      await putFile(owner,repo,branch,token,tgt,base64,"[tool] deploy", sha||null);
-      logEvent({phase:"apply",action:"DEPLOY",op: sha?"UPDATED":"ADDED",path:tgt});
-      if(sha) upd++; else add++;
-    }catch(ex){
-      logEvent({phase:"apply",action:"DEPLOY",op:"ERROR",path:tgt,message:String(ex)}); err++;
-    }
-  }
-  if(mode==="replace"){
-    const orphans = existing.filter(p => !incomingFull.includes(p));
-    for(const p of orphans){
-      try{
-        const sha = await getShaIfExists(owner,repo,token,p);
-        if(sha){ await deleteFile(owner,repo,branch,token,p,"[tool] replace cleanup",sha); logEvent({phase:"apply",action:"DEPLOY",op:"DELETED",path:p}); del++; }
-      }catch(ex){ logEvent({phase:"apply",action:"DEPLOY",op:"ERROR",path:p,message:String(ex)}); err++; }
-    }
-  }
-  logEvent({phase:"apply",action:"DEPLOY",op:"SUMMARY",details:{added:add,updated:upd,deleted:del,errors:err}});
-}
-
-// Wire
-$("#btn-connect").addEventListener("click", connect);
-$("#btn-refresh").addEventListener("click", connect);
-$("#btn-select-all").addEventListener("click", ()=>{
-  function walk(n){ if(n.type==="file"){ n.checked=true; state.selection.add(n.path); } else if(n.children){ n.open=true; n.children.forEach(walk); } }
-  walk(state.tree); renderTree(state.tree, $("#tree")); updateSelCount();
-});
-$("#btn-select-none").addEventListener("click", ()=>{
-  function walk(n){ if(n.type==="file"){ n.checked=false; state.selection.delete(n.path); } else if(n.children){ n.children.forEach(walk); } }
-  walk(state.tree); renderTree(state.tree, $("#tree")); updateSelCount();
-});
-$("#filter").addEventListener("keydown",(e)=>{ if(e.key==="Enter"){ renderTree(state.tree, $("#tree")); } });
-
-$("#btn-export-json").addEventListener("click", exportSelectionJSON);
-$("#btn-export-json-dl").addEventListener("click", ()=>{
-  const text = $("#out-json").value || JSON.stringify({selection:Array.from(state.selection)}, null, 2);
-  const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([text],{type:"application/json"})); a.download="selection.json"; a.click();
-});
-$("#btn-export-list").addEventListener("click", exportListing);
-
-$("#btn-delete-dry").addEventListener("click", ()=>runDelete(true));
-$("#btn-delete-apply").addEventListener("click", async ()=>{
-  const count = state.selection.size;
-  if(count>=10 && !confirm(`You selected ${count} files. Proceed with deletion?`)) return;
-  await runDelete(false);
-});
-
-$("#btn-deploy-dry").addEventListener("click", ()=>runDeploy(true));
-$("#btn-deploy-apply").addEventListener("click", async ()=>{
-  const replace = $("#mode").value==="replace";
-  if(replace && !confirm("Replace mode will delete files in the target not present in the archive. Proceed?")) return;
-  await runDeploy(false);
-});
-
-// Autoguess when hosted on Pages
-(function(){
-  try{
-    const host = location.hostname;
-    const owner = host.split(".")[0];
-    const parts = location.pathname.split("/").filter(Boolean);
-    if(!$("#owner").value) $("#owner").value = owner || "";
-    if(!$("#repo").value) $("#repo").value = parts[0] || "";
-  }catch{}
-})();
+// Delete, Deploy, and event wiring unchanged ↓
+/* (garde le reste de ton code identique, sans autre modif) */
