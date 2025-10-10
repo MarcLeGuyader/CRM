@@ -5,12 +5,18 @@
    - [PATCH-ANCHOR:IMPORTS]
 // [PATCH] lignes injectées après IMPORTS
 const PATCH_MARK = 'imports-ok';
+// [PATCH] lignes injectées après IMPORTS
+const PATCH_MARK = 'imports-ok';
    - [PATCH-ANCHOR:CONFIG]
    - [PATCH-ANCHOR:UTILS]
    - [PATCH-ANCHOR:CLASS]
    - [PATCH-ANCHOR:REGEX]
 // [PATCH] nouvelle regex de test
 const RX_DOLLAR = /\$/g;
+// [PATCH] nouvelle regex de test
+const RX_DOLLAR = /\$/g;
+// [PATCH] helper ajouté avant EXPORTS
+export function __patchHelper__(){ return 'helper-ok'; }
 // [PATCH] helper ajouté avant EXPORTS
 export function __patchHelper__(){ return 'helper-ok'; }
    - [PATCH-ANCHOR:EXPORTS]
@@ -42,6 +48,7 @@ export const config = {
 // Utilitaires divers
 // [PATCH-ANCHOR:UTILS]
 // [PATCH] commentaire inséré juste avant sleep()
+// [PATCH] commentaire inséré juste avant sleep()
 export function sleep(ms = 0) {
   return new Promise(res => setTimeout(res, ms));
 }
@@ -67,6 +74,8 @@ const SYM = Symbol("test");
 // Classe riche: champs privés, getters, statics, async/générateur
 // [PATCH-ANCHOR:CLASS]
 export class DataBox {
+  // [PATCH] champ statique ajouté pour test
+  static patched = true;
   // [PATCH] champ statique ajouté pour test
   static patched = true;
   #items = new Map();
