@@ -90,6 +90,10 @@ export function renderOpportunityDialog({
 
   const errors = el('pre', { class: 'crm-errors' });
   const actions = el('menu', {}, [
+  el('button', { class: 'crm-btn', 'data-role': 'cancel' }, [document.createTextNode('Cancel')]),
+  el('button', { class: 'crm-btn primary', 'data-role': 'save' }, [document.createTextNode('Save')])
+]);
+
 // wire Cancel → close via parent onCancel (fallback to local close)
 const btnCancel = actions.querySelector('[data-role="cancel"]');
 btnCancel?.addEventListener('click', (ev) => {
@@ -98,10 +102,6 @@ btnCancel?.addEventListener('click', (ev) => {
   try { dlg.close?.(); } catch {}
   try { dlg.remove?.(); } catch {}
 });
-    el('button', { class: 'crm-btn', 'data-role': 'cancel' }, [document.createTextNode('Cancel')]),
-    el('button', { class: 'crm-btn primary', 'data-role': 'save' }, [document.createTextNode('Save')])
-  ]);
-
   dlg.append(hdr, grid, errors, actions);
   return dlg;
 }
