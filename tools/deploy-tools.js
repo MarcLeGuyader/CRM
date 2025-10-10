@@ -180,23 +180,26 @@ async function deployApply(){
   }catch(e){
     safeLog('ERROR','Deploy apply échec', { error: String(e) });
     printDeploy(`Erreur deploy apply:\n${String(e)}\n`);
-  }finally{
-    setBusy(false);
-    $('#status').textContent = 'Prêt.';
-  }
+} finally {
+  setBusy(false);
+  $('#status').textContent = 'Prêt.';
+}
 }
 
-// ---------- Brancher les boutons existants dans l’onglet Deploy
-$('#btn-deploy-zip')    ?.addEventListener('click', deployDryRun);
-$('#btn-deploy-single') ?.addEventListener('click', deployApply);
+// ---------- Brancher les boutons (Deploy)
+document.getElementById('btn-deploy-zip')?.addEventListener('click', deployDryRun);
+document.getElementById('btn-deploy-single')?.addEventListener('click', deployApply);
 
-// ---------- Sentinelles (debug)
-window.addEventListener('unhandledrejection', e=>{
+// -- Build tag (exposé pour l’index)
+export const BUILD_TAG = { file: 'deploy-tools.js', note: 'v1' };
+window.DEPLOY_BUILD_TAG = BUILD_TAG;
+
+// -- Sentinelles
+window.addEventListener('unhandledrejection', e => {
   safeLog('ERROR', 'unhandledrejection (deploy)', { reason: String(e?.reason) });
 });
-window.addEventListener('error', e=>{
-  safeLog('ERROR', 'window.onerror (deploy)', { message: e?.message, source: e?.filename, line: e?.lineno, col: e?.colno });
+window.addEventListener('error', e => {
+  safeLog('ERROR', 'window.onerror (deploy)', {
+    message: e?.message, source: e?.filename, line: e?.lineno, col: e?.colno
+  });
 });
-
-
-`${window.DEPLOY_BUILD_TAG?.file || "deploy-tools.js"}: ${window.DEPLOY_BUILD_TAG?.note || "?"}`,
