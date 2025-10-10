@@ -3,7 +3,7 @@
 
 export const BUILD_TAG = {
   file: "app.js",
-  note: "V4 - debug",
+  note: "V5 - grid",
 };
 
 // ---------- Helpers ----------
@@ -158,7 +158,7 @@ queueMicrotask(() => {
   }
 });
 
-    name.style.display = 'block';
+//    name.style.display = 'block';
 
     row.append(toggle, cb, name);
     li.appendChild(row);
