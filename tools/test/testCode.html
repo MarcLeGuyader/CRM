@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>TestCode • Patch Harness (patched)</title>
+  <title>TestCode • Patch Harness (patched v3)</title>
   <style>
     :root{
       --ink:#0b1320; --muted:#617387; --line:#e1e6eb; --bg:#f7fafc; --brand:#1e6091;
@@ -20,21 +20,22 @@
 <body>
   <h1>TestCode • Patch Harness</h1>
   <div class="card">
-    <!-- [PATCH] commentaire avant le conteneur out -->
-    <!-- [PATCH] commentaire avant le conteneur out -->
+<!-- [PATCH v3] after pre-out comment -->
+<!-- [PATCH v3] before #out -->
     <div id="out"></div>
   </div>
 
   <!-- Deux balises script avec des différences légères pour tester insert_before/after sélectif -->
   <!-- [PATCH-ANCHOR:SCRIPT-AREA] -->
+<!-- [PATCH v3] injected marker after SCRIPT-AREA -->
   <script>
     // [PATCH] script ajouté via anchor
-    console.log('[PATCH] extra inline script OK');
+    console.log('[PATCH] extra inline script V3');
   </script>
   <!-- [PATCH] commentaire après le premier </script> -->
   <script>
     // [PATCH] script ajouté via anchor
-    console.log('[PATCH] extra inline script OK');
+    console.log('[PATCH] extra inline script V3');
   </script>
   <!-- [PATCH] commentaire après le premier </script> -->
   <script type="module">
