@@ -112,6 +112,28 @@
   <script type="module" src="./app.js?v=12"></script>
   <script type="module" src="./json-tools.js?v=12"></script>
 
+<script type="module">
+import { BUILD_TAG as APP_TAG } from "./app.js";
+import { BUILD_TAG as JSON_TAG } from "./json-tools.js";
+
+window.addEventListener("DOMContentLoaded", () => {
+  const cssVars = getComputedStyle(document.documentElement);
+  const cssFile = cssVars.getPropertyValue("--build-tag-css-file").replace(/"/g, "").trim();
+  const cssNote = cssVars.getPropertyValue("--build-tag-css-note").replace(/"/g, "").trim();
+
+  const summary = [
+    `${APP_TAG.file}: ${APP_TAG.note}`,
+    `${JSON_TAG.file}: ${JSON_TAG.note}`,
+    `${cssFile}: ${cssNote}`,
+  ].join(" | ");
+
+  if (window.TV?.log) window.TV.log("SUMMARY", "📦 Build tags", { summary });
+  else console.log("📦 Build tags:", summary);
+});
+</script>
+
+
+  
   <!-- Tabs controller -->
   <script>
     (function tabsInit(){
