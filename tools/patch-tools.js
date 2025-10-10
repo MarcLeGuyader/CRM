@@ -1,6 +1,6 @@
 // tools/patch-tools.js — Outil Patch (Dry-run / Apply) — support étendu des opérations
 
-export const BUILD_TAG = { file: "patch-tools.js", note: "v6" };
+export const BUILD_TAG = { file: "patch-tools.js", note: "v7" };
 
 const TV = window.TV;
 const $ = (s) => document.querySelector(s);
@@ -317,7 +317,7 @@ async function patchApply() {
 
 
         const pre = change.pre;
-        const preChk = await checkPreconditions(meta, text, pre, TV?.log);
+        const preChk = await checkPreconditions(meta, original, pre, TV?.log);
         if (!preChk.ok) {
           out += `  ❌ Préconditions NON satisfaites — patch ignoré (strict)\n\n`;
           continue;
