@@ -1,3 +1,4 @@
+// BUILD_TAG: CRM v1
 /* modules/debug-console/debug-console.js
  * Debug Console (Module 08)
  * - Uses global event bus at window.bus (required)
