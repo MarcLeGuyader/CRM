@@ -3,7 +3,7 @@
 
 export const BUILD_TAG = {
   file: "clean-tools.js",
-  note: "v1",
+  note: "v5",
 };
 
 const TV = window.TV;
@@ -186,3 +186,6 @@ window.addEventListener('unhandledrejection', e=>{
 window.addEventListener('error', e=>{
   safeLog('ERROR', 'window.onerror (clean)', { message: e?.message, source: e?.filename, line: e?.lineno, col: e?.colno });
 });
+
+
+window.CLEAN_BUILD_TAG = BUILD_TAG;   // dans clean-tools.js
