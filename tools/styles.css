@@ -8,7 +8,7 @@
   --warn:#c92a2a;
   --violet:#6f42c1;
   --build-tag-css-file: "styles.css";
-  --build-tag-css-note: "UI layout & color system";
+  --build-tag-css-note: "V2";
 }
 
 *{box-sizing:border-box}
@@ -54,14 +54,14 @@ button:disabled{opacity:.6;cursor:not-allowed}
   flex:0 0 auto;          /* évite que la checkbox s'étire */
 }
 .node .name{
-  flex:1 1 auto;          /* occupe l'espace restant */
-  min-width:0;            /* indispensable pour l'ellipsis en flex (iPad/Safari) */
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  display: inline-block; 
-  vertical-align: middle;
+  flex: 1 1 auto;      /* prend l'espace restant en flex */
+  min-width: 0;        /* indispensable pour que l'ellipsis fonctionne en flex (Safari/iPad) */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;      /* bloc régulier, pas inline-block */
 }
+
 .folder{font-weight:600}
 
 /* Radios (alignement propre input/label) */
