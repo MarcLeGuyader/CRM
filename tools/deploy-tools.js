@@ -190,11 +190,8 @@ async function deployApply(){
 document.getElementById('btn-deploy-zip')?.addEventListener('click', deployDryRun);
 document.getElementById('btn-deploy-single')?.addEventListener('click', deployApply);
 
-// -- Build tag (exposé pour l’index)
-export const BUILD_TAG = { file: 'deploy-tools.js', note: 'v1' };
-window.DEPLOY_BUILD_TAG = BUILD_TAG;
 
-// -- Sentinelles
+// ---------- Sentinelles
 window.addEventListener('unhandledrejection', e => {
   safeLog('ERROR', 'unhandledrejection (deploy)', { reason: String(e?.reason) });
 });
