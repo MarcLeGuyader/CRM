@@ -3,7 +3,7 @@
 
 export const BUILD_TAG = {
   file: "app.js",
-  note: "V2",
+  note: "V3",
 };
 
 // ---------- Helpers ----------
@@ -144,6 +144,8 @@ function renderTree(root, container){
     name.className = 'name ' + (n.type==='dir'?'folder':'file');
     name.textContent = n.name || '/';
 
+    name.style.display = 'block';
+
     row.append(toggle, cb, name);
     li.appendChild(row);
 
@@ -167,8 +169,6 @@ function renderTree(root, container){
 
   container.appendChild(ul);
   updateSelCount();
-// (optionnel) force un repaint sur Safari/iPad après gros re-render
-queueMicrotask(() => { void container.offsetHeight; });
   
 }
 
