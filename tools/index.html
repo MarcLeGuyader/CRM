@@ -113,6 +113,7 @@
   <script type="module" src="./json-tools.js?v=12"></script>
   <script type="module" src="./clean-tools.js?v=1"></script>
   <script type="module" src="./deploy-tools.js?v=1"></script>
+  <script type="module" src="./patch-tools.js?v=1"></script>
 
   <script>
     window.addEventListener("DOMContentLoaded", () => {
@@ -125,6 +126,7 @@
         `${window.JSON_BUILD_TAG?.file || "json-tools.js"}: ${window.JSON_BUILD_TAG?.note || "?"}`,
         `${window.CLEAN_BUILD_TAG?.file || "clean-tools.js"}: ${window.CLEAN_BUILD_TAG?.note || "?"}`,
         `${window.DEPLOY_BUILD_TAG?.file|| "deploy-tools.js"}: ${window.DEPLOY_BUILD_TAG?.note|| "?"}`,
+        `${window.PATCH_BUILD_TAG?.file|| "patch-tools.js"}: ${window.PATCH_BUILD_TAG?.note|| "?"}`,
         `${cssFile}: ${cssNote}`,
       ].join(" | ");
 
