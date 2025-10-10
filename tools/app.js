@@ -3,7 +3,7 @@
 
 export const BUILD_TAG = {
   file: "app.js",
-  note: "V1",
+  note: "V2",
 };
 
 // ---------- Helpers ----------
