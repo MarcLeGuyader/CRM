@@ -31,7 +31,7 @@
     window.bus = bus;
     await import('./modules/debug-console/debug-console.js');
     const debugApi = window.DebugConsole?.mount
-      ? window.DebugConsole.mount(document.getElementById('debug'))
+      ? window.DebugConsole.mount(document.getElementById('debug'), { open: false })
       : { log: (...a)=>console.log('[debug fallback]', ...a), toggle:()=>{} };
     try {
       await import('./modules/data-orchestrator/data-orchestrator.js');
