@@ -3,10 +3,16 @@
 
    ANCHORS (utiles pour insert_before / insert_after):
    - [PATCH-ANCHOR:IMPORTS]
+// [PATCH] lignes injectées après IMPORTS
+const PATCH_MARK = 'imports-ok';
    - [PATCH-ANCHOR:CONFIG]
    - [PATCH-ANCHOR:UTILS]
    - [PATCH-ANCHOR:CLASS]
    - [PATCH-ANCHOR:REGEX]
+// [PATCH] nouvelle regex de test
+const RX_DOLLAR = /\$/g;
+// [PATCH] helper ajouté avant EXPORTS
+export function __patchHelper__(){ return 'helper-ok'; }
    - [PATCH-ANCHOR:EXPORTS]
 
    Notes:
@@ -24,17 +30,18 @@ const maybeIntl = typeof Intl !== "undefined" ? Intl : null;
 // Valeurs de config (ancres et clés susceptibles d’être patchées)
 // [PATCH-ANCHOR:CONFIG]
 export const config = {
-  apiBase: "https://api.example.com",
+  apiBase: "https://api.example.dev",
   featureFlags: {
     useNewCache: false,
     enableFancyUI: true,
   },
   retry: { count: 3, backoffMs: 250 },
-  brandColor: "#1e6091", // (présenté aussi dans le CSS du projet)
+  brandColor: "#1a6b9a", // (présenté aussi dans le CSS du projet)
 };
 
 // Utilitaires divers
 // [PATCH-ANCHOR:UTILS]
+// [PATCH] commentaire inséré juste avant sleep()
 export function sleep(ms = 0) {
   return new Promise(res => setTimeout(res, ms));
 }
@@ -60,6 +67,8 @@ const SYM = Symbol("test");
 // Classe riche: champs privés, getters, statics, async/générateur
 // [PATCH-ANCHOR:CLASS]
 export class DataBox {
+  // [PATCH] champ statique ajouté pour test
+  static patched = true;
   #items = new Map();
   static version = "1.0.0";
 
@@ -99,7 +108,6 @@ export class DataBox {
 export function proxify(target = {}) {
   return new Proxy(target, {
     get(t, p, r) {
-      // double occurrence volontaire de “get” (pour replace_all tests)
       if (p === "get") return Reflect.get(t, p, r);
       return Reflect.get(t, p, r);
     },
@@ -128,7 +136,7 @@ export async function complexWorkflow(options = {}) {
     : { format: (x) => String(x) };
 
   // répétition de chaîne pour tester replace_all
-  let title = "Fancy Title - Fancy Title - Fancy Title";
+  let title = "Serious Title - Serious Title - Serious Title";
 
   // chaîne multilignes (attention aux backticks)
   const banner = `
@@ -160,7 +168,7 @@ Flag:   ${flag}
 // [PATCH-ANCHOR:EXPORTS]
 export const examples = {
   simpleText: "replace me once",
-  repeatedText: "repeat repeat repeat",   // plusieurs “repeat”
+  repeatedText: "echo echo echo",   // plusieurs “echo”
   tricky: `Line1\nLine2 with "quotes" and 'single-quotes'\nLine3`,
 };
 
