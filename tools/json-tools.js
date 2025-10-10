@@ -1,6 +1,12 @@
 // json-tools.js — Outil JSON séparé (Arborescence / Complet)
 // Requiert que app.js soit chargé avant et expose window.TV
 
+
+export const BUILD_TAG = {
+  file: "json-tools.js",
+  note: "v1",
+};
+
 const TV = window.TV;
 if (!TV) {
   console.error('[JSON-TOOLS] TV API not found (app.js not loaded yet).');
