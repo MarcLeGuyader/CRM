@@ -8,7 +8,7 @@
   --warn:#c92a2a;
   --violet:#6f42c1;
   --build-tag-css-file: "styles.css";
-  --build-tag-css-note: "V5 - grid";
+  --build-tag-css-note: "V5.1 - textarea input hardening";
 }
 
 *{box-sizing:border-box}
@@ -105,6 +105,9 @@ button:disabled{opacity:.6;cursor:not-allowed}
   padding:12px;
 }
 .tools-panel textarea{
+  tab-size: 2;
+  font-variant-ligatures: none;
+  -webkit-text-size-adjust: 100%;
   width:100%;
   height:220px;
   font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
