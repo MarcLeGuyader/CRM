@@ -4,7 +4,7 @@
 
 export const BUILD_TAG = {
   file: "json-tools.js",
-  note: "v1",
+  note: "v5",
 };
 
 const TV = window.TV;
