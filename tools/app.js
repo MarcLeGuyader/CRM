@@ -3,7 +3,7 @@
 
 export const BUILD_TAG = {
   file: "app.js",
-  note: "V3",
+  note: "V4 - debug",
 };
 
 // ---------- Helpers ----------
@@ -143,6 +143,20 @@ function renderTree(root, container){
     const name = document.createElement('span');
     name.className = 'name ' + (n.type==='dir'?'folder':'file');
     name.textContent = n.name || '/';
+
+    // 🧩 Étape 1 : bloc de debug largeur
+queueMicrotask(() => {
+  const rect = name.getBoundingClientRect();
+  if (rect.width < 3) {
+    log('WARN', 'Largeur .name trop petite', {
+      name: n.name,
+      width: rect.width,
+      display: getComputedStyle(name).display,
+      overflow: getComputedStyle(name).overflow,
+      parentW: name.closest('.node')?.getBoundingClientRect()?.width
+    });
+  }
+});
 
     name.style.display = 'block';
 
