@@ -3,6 +3,8 @@
 
    ANCHORS (utiles pour insert_before / insert_after):
    - [PATCH-ANCHOR:IMPORTS]
+// [PATCH v3] inserted after IMPORTS (once)
+const PATCH_V3 = 'imports-v3';
 // [PATCH] lignes injectées après IMPORTS
 const PATCH_MARK = 'imports-ok';
 // [PATCH] lignes injectées après IMPORTS
@@ -19,6 +21,8 @@ const RX_DOLLAR = /\$/g;
 export function __patchHelper__(){ return 'helper-ok'; }
 // [PATCH] helper ajouté avant EXPORTS
 export function __patchHelper__(){ return 'helper-ok'; }
+// [PATCH v3] helper before EXPORTS
+export function __patchHelperV2__(){ return 'helper-v3'; }
    - [PATCH-ANCHOR:EXPORTS]
 
    Notes:
@@ -36,19 +40,20 @@ const maybeIntl = typeof Intl !== "undefined" ? Intl : null;
 // Valeurs de config (ancres et clés susceptibles d’être patchées)
 // [PATCH-ANCHOR:CONFIG]
 export const config = {
-  apiBase: "https://api.example.dev",
+  apiBase: "https://api.example.com/v2",
   featureFlags: {
     useNewCache: false,
     enableFancyUI: true,
   },
   retry: { count: 3, backoffMs: 250 },
-  brandColor: "#1a6b9a", // (présenté aussi dans le CSS du projet)
+  brandColor: "#0aa0ff", // (présenté aussi dans le CSS du projet)
 };
 
 // Utilitaires divers
 // [PATCH-ANCHOR:UTILS]
 // [PATCH] commentaire inséré juste avant sleep()
 // [PATCH] commentaire inséré juste avant sleep()
+// [PATCH v3] note: sleep() instrumentation point
 export function sleep(ms = 0) {
   return new Promise(res => setTimeout(res, ms));
 }
@@ -66,6 +71,7 @@ const RX_WORD = /\bword\b/gi;                  // simple
 const RX_QUOTES = /"([^"]*)"|'([^']*)'/g;      // guillemets
 const RX_LOOKBEHIND = /(?<=\s|^)[A-Z][a-z]+/g; // lookbehind (selon moteur)
 const RX_U_FLAG = /\p{Letter}+/gu;             // unicode property (peut varier selon env)
+const RX_ALPHA = /[A-Za-z]+/g; // [PATCH v3] extra regex
 
 // Valeurs “grandes” et Symbol
 const BIG = 2n ** 61n - 1n;
@@ -75,9 +81,7 @@ const SYM = Symbol("test");
 // [PATCH-ANCHOR:CLASS]
 export class DataBox {
   // [PATCH] champ statique ajouté pour test
-  static patched = true;
   // [PATCH] champ statique ajouté pour test
-  static patched = true;
   #items = new Map();
   static version = "1.0.0";
 
@@ -145,7 +149,7 @@ export async function complexWorkflow(options = {}) {
     : { format: (x) => String(x) };
 
   // répétition de chaîne pour tester replace_all
-  let title = "Serious Title - Serious Title - Serious Title";
+  let title = "Epic Title - Epic Title - Epic Title";
 
   // chaîne multilignes (attention aux backticks)
   const banner = `
@@ -177,7 +181,7 @@ Flag:   ${flag}
 // [PATCH-ANCHOR:EXPORTS]
 export const examples = {
   simpleText: "replace me once",
-  repeatedText: "echo echo echo",   // plusieurs “echo”
+  repeatedText: "repeat repeat repeat",   // plusieurs “repeat”
   tricky: `Line1\nLine2 with "quotes" and 'single-quotes'\nLine3`,
 };
 
