@@ -1,10 +1,9 @@
-// json-tools.js — Outil JSON séparé (Arborescence / Complet)
+// json-tools.js — Outil JSON séparé (Arborescence / Complet / prêt pour Patch)
 // Requiert que app.js soit chargé avant et expose window.TV
-
 
 export const BUILD_TAG = {
   file: "json-tools.js",
-  note: "v5",
+  note: "v6 (sha & sha256 pour patch)",
 };
 
 const TV = window.TV;
@@ -44,6 +43,16 @@ function decodeBase64ToText(b64){
   }
 }
 
+// SHA-256 (hex) — pour préconditions de patch strictes
+async function sha256HexFromBytes(bytes){
+  const buf = await crypto.subtle.digest("SHA-256", bytes);
+  return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+async function sha256HexFromText(text){
+  const enc = new TextEncoder().encode(text);
+  return sha256HexFromBytes(enc);
+}
+
 /* ========= Fetch de contenu (local, via TV.ghBase/TV.ghHeaders) ========= */
 async function fetchFileWithContent({owner, repo, branch, token, path}){
   const url = `${TV.ghBase(owner,repo)}/contents/${encodeURIComponent(path)}?ref=${encodeURIComponent(branch)}`;
@@ -51,18 +60,40 @@ async function fetchFileWithContent({owner, repo, branch, token, path}){
   if (res.status === 404) throw new Error(`Missing: ${path}`);
   if (!res.ok) throw new Error(`GET contents ${path} → ${res.status}`);
 
-  const j = await res.json(); // { content (base64), size, encoding, ... }
-  const size = j.size ?? (j.content ? b64ToUint8(j.content.replace(/\n/g,"")).length : 0);
+  // j contient: name, path, sha (blob SHA GitHub), size, type, encoding, content (base64), etc.
+  const j = await res.json();
+
+  const b64 = (j.content || "").replace(/\n/g,"");
   const binary = isBinaryPath(path);
 
   if (binary) {
-    // garder base64
-    const content = (j.content || "").replace(/\n/g,"");
-    return { path, type:"binary", size, content, contentEncoding: 'base64' };
+    const bytes = b64ToUint8(b64);
+    const sha256 = await sha256HexFromBytes(bytes);
+    const size = typeof j.size === 'number' ? j.size : bytes.length;
+
+    // garder base64 pour binaires
+    return {
+      path,
+      type: "binary",
+      size,
+      sha: j.sha,              // SHA GitHub du blob
+      sha256,                  // SHA-256 du contenu
+      contentEncoding: "base64",
+      content: b64
+    };
   } else {
-    const b64 = (j.content || "").replace(/\n/g,"");
     const text = decodeBase64ToText(b64);
-    return { path, type:"text", size: text.length, content: text };
+    const sha256 = await sha256HexFromText(text);
+    const size = typeof j.size === 'number' ? j.size : text.length;
+
+    return {
+      path,
+      type: "text",
+      size,
+      sha: j.sha,              // SHA GitHub du blob
+      sha256,                  // SHA-256 du contenu
+      content: text
+    };
   }
 }
 
@@ -96,8 +127,8 @@ async function generateSelectionJSON(){
         $('#json-out').value = '[]';
       } else {
         $('#json-out').value = JSON.stringify({
-          repo: `${owner}/${repo}`,
-          branch, generatedAt: new Date().toISOString(),
+          owner, repo, branch,
+          generatedAt: new Date().toISOString(),
           totalFiles: 0, files: []
         }, null, 2);
       }
@@ -113,7 +144,7 @@ async function generateSelectionJSON(){
       return;
     }
 
-    // Mode "Complet" : télécharger le contenu de chaque fichier
+    // Mode "Complet" : télécharger le contenu + sha + sha256 pour patch strict
     const outFiles = [];
     let done = 0;
     for (const p of filesSel){
@@ -128,12 +159,23 @@ async function generateSelectionJSON(){
     }
 
     const bundle = {
-      repo: `${owner}/${repo}`,
-      branch,
+      owner, repo, branch,
       generatedAt: new Date().toISOString(),
       totalFiles: outFiles.length,
-      files: outFiles
+      files: outFiles,
+      // Petit rappel pour la construction d’un patch “strict”
+      patch_help: {
+        note: "Utilisez sha (GitHub blob) + sha256 + size pour preconditions strictes dans patch-tools",
+        example_pre: {
+          strict: true,
+          expectSha: "<copier depuis files[i].sha>",
+          expectSize: "<copier depuis files[i].size>",
+          expectHash: { algo: "sha256", value: "<copier depuis files[i].sha256>" },
+          expectIncludes: "optionnel: chaîne sentinelle"
+        }
+      }
     };
+
     $('#json-out').value = JSON.stringify(bundle, null, 2);
     safeLog('INFO','JSON (complet) généré', { total: outFiles.length });
 
