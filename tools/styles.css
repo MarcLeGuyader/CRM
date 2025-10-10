@@ -8,7 +8,7 @@
   --warn:#c92a2a;
   --violet:#6f42c1;
   --build-tag-css-file: "styles.css";
-  --build-tag-css-note: "32";
+  --build-tag-css-note: "V4 - debug";
 }
 
 *{box-sizing:border-box}
@@ -122,3 +122,10 @@ pre#log{
   .main{grid-template-columns:1fr}
   .node .name{max-width:100%}
 }
+
+
+/* ==== DEBUG MODE (temporaire) ==== */
+.node { outline: 1px dashed #f59e0b; }
+.node .toggle { outline: 1px solid #22c55e; }
+.node input[type="checkbox"] { outline: 1px solid #06b6d4; }
+.node .name { background: rgba(255, 255, 0, .2); outline: 1px solid #ef4444; }
