@@ -3,7 +3,7 @@
 
 export const BUILD_TAG = {
   file: "deploy-tools.js",
-  note: "v1",
+  note: "v2",
 };
 
 // Expose la tag côté window pour le log récapitulatif de l’index
