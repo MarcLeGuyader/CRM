@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>TestCode • Patch Harness</title>
+  <style>
+    :root{
+      --ink:#0b1320; --muted:#617387; --line:#e1e6eb; --bg:#f7fafc; --brand:#1e6091;
+      --build-tag-css-file:"testCode.html"; --build-tag-css-note:"v1";
+    }
+    body{background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif;margin:0;padding:20px}
+    h1{margin:0 0 12px}
+    code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+    .card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
+    .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .muted{color:var(--muted)}
+  </style>
+</head>
+<body>
+  <h1>TestCode • Patch Harness</h1>
+  <div class="card">
+    <p class="muted">Page de test pour exécuter <code>TestCode.js</code> et vérifier les patchs.</p>
+    <div id="out"></div>
+  </div>
+
+  <!-- Deux balises script avec des différences légères pour tester insert_before/after sélectif -->
+  <!-- [PATCH-ANCHOR:SCRIPT-AREA] -->
+  <script type="module">
+    import def, { TEST_BUILD_TAG, config, DataBox, complexWorkflow, examples, proxify } from "./TestCode.js";
+
+    const out = document.getElementById("out");
+    const p = document.createElement("pre");
+    p.textContent = "Load A: " + JSON.stringify(TEST_BUILD_TAG);
+    out.appendChild(p);
+
+    // Micro test DataBox + generator + async
+    const box = new DataBox([["alpha",1],["beta",2]]);
+    box.set("gamma", 3);
+    const keys = [...box.keysLike(/a/)];
+    const lines = [];
+    (async () => {
+      for await (const row of box.stream(0)) lines.push(`${row.k}:${row.v}`);
+      const res = await complexWorkflow({ flag: "x" });
+      const dump = { keys, lines, res, examples, brand: config.brandColor };
+      const pre = document.createElement("pre"); pre.textContent = JSON.stringify(dump, null, 2);
+      out.appendChild(pre);
+    })();
+
+    // Proxy test
+    const t = proxify({ x: 1 });
+    t.note = "word inside word boundary"; // => remplacé en "WORD …" par Proxy set
+  </script>
+
+  <script type="module">
+    import { TEST_BUILD_TAG as TB2 } from "./TestCode.js";
+    const pre = document.createElement("pre");
+    pre.textContent = "Load B: " + JSON.stringify(TB2);
+    document.getElementById("out").appendChild(pre);
+  </script>
+
+</body>
+</html>
