@@ -1,327 +1,293 @@
-// patch-tools.js — Outil de “patching” (Dry-run / Apply)
-// Requiert app.js (fenêtre expose window.TV) + champs #owner/#repo/#branch/#token dans l’UI
-// UI attendue dans l’onglet Patch :
-//  - <textarea id="patch-in"></textarea>   // où coller le JSON des patchs
-//  - <textarea id="patch-out" readonly></textarea> // résultats (dry-run / apply)
-//  - <button id="btn-patch-dryrun"></button>
-//  - <button id="btn-patch-apply"></button>
+// tools/patch-tools.js — Outil Patch (Dry-run / Apply) — support étendu des opérations
 
-export const BUILD_TAG = {
-  file: "patch-tools.js",
-  note: "v1",
-};
-
-// Expose au window pour le “Build tags” récap depuis index.html
-window.PATCH_BUILD_TAG = BUILD_TAG;
+export const BUILD_TAG = { file: "patch-tools.js", note: "v2 (ops étendues)" };
 
 const TV = window.TV;
-if (!TV) console.error("[PATCH-TOOLS] TV API not found (app.js manquant ?).");
-
-// Aliases
 const $ = (s) => document.querySelector(s);
 const safeLog = (tag, msg, data) => { try { TV?.log?.(tag, msg, data); } catch {} };
 
-// ---------------- Helpers génériques ----------------
-function readContext() {
-  return {
-    owner:  $('#owner')?.value.trim(),
-    repo:   $('#repo')?.value.trim(),
-    branch: $('#branch')?.value.trim() || 'main',
-    token:  $('#token')?.value.trim() || null,
-  };
-}
-function setBusy(b) {
-  ['#btn-patch-dryrun','#btn-patch-apply'].forEach(s => { const el = $(s); if (el) el.disabled = !!b; });
-}
-function out(text) {
-  const ta = $('#patch-out'); if (ta) ta.value = text;
-}
-function getPatchJSON() {
-  const raw = $('#patch-in')?.value || '';
-  try {
-    return JSON.parse(raw);
-  } catch (e) {
-    throw new Error("Patch JSON invalide: " + e.message);
-  }
-}
-function ensureString(x){ return (typeof x === 'string') ? x : String(x ?? ''); }
-
-// GitHub “contents” helpers
-async function ghGetText({ owner, repo, branch, token, path }) {
-  const url = `${TV.ghBase(owner,repo)}/contents/${encodeURIComponent(path)}?ref=${encodeURIComponent(branch)}`;
+// --- GitHub helpers ---
+async function ghGetFile({ owner, repo, branch, token, path }) {
+  const url = `${TV.ghBase(owner, repo)}/contents/${encodeURIComponent(path)}?ref=${encodeURIComponent(branch)}`;
   const res = await fetch(url, { headers: TV.ghHeaders(token) });
   if (!res.ok) throw new Error(`GET ${path} → ${res.status}`);
-  const j = await res.json(); // { content(base64), sha, ... }
-  const b64 = (j.content || '').replace(/\n/g,'');
-  const text = atob(b64);
-  return { text, sha: j.sha, size: j.size ?? text.length };
+  return res.json(); // { content (b64), sha, path, ... }
 }
-async function ghPutText({ owner, repo, branch, token, path, text, sha, message, committer }) {
-  const url = `${TV.ghBase(owner,repo)}/contents/${encodeURIComponent(path)}`;
-  // encode
-  const b64 = btoa(text);
+async function ghPutFile({ owner, repo, branch, token, path, sha, content, message, committer }) {
+  const url = `${TV.ghBase(owner, repo)}/contents/${encodeURIComponent(path)}`;
   const body = {
     message: message || `Patch: update ${path}`,
-    content: b64,
     branch,
     sha,
+    content: btoa(unescape(encodeURIComponent(content))),
   };
   if (committer) body.committer = committer;
-
   const res = await fetch(url, {
-    method: 'PUT',
-    headers: { ...TV.ghHeaders(token), 'Content-Type':'application/json' },
+    method: "PUT",
+    headers: { ...TV.ghHeaders(token), "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
   if (!res.ok) {
-    const t = await res.text().catch(()=> '');
-    throw new Error(`PUT ${path} → ${res.status} ${t || ''}`);
+    const txt = await res.text().catch(()=>"");
+    throw new Error(`PUT ${path} → ${res.status} ${txt || ""}`);
   }
   return res.json();
 }
 
-// ----------------- Moteur de patchs (texte) -----------------
-// On travaille en mode “ligne” (split '\n') pour la majorité des ops.
-function applyOpsToText(origText, ops, report) {
-  let text = origText;
-  let lines = text.split('\n');
+// --- UI helpers ---
+const busy = (on) => {
+  ["#btn-patch-dry", "#btn-patch-apply"].forEach(id => { const el = $(id); if (el) el.disabled = !!on; });
+};
+const readCtx = () => ({
+  owner:  $('#owner').value.trim(),
+  repo:   $('#repo').value.trim(),
+  branch: $('#branch').value.trim() || 'main',
+  token:  $('#token').value.trim() || null,
+});
+const getPatchJSON = () => {
+  const raw = $('#patch-in')?.value || "";
+  let j;
+  try { j = JSON.parse(raw); } catch(e){ throw new Error(`JSON invalide: ${e.message}`); }
+  if (!j || !Array.isArray(j.changes) || j.changes.length===0) {
+    throw new Error('Patch JSON: "changes" vide ou absent');
+  }
+  return j;
+};
+const setOut = (txt) => { const ta = $('#patch-out'); if (ta) ta.value = txt; };
 
-  const addRpt = (line) => report.push(line);
+// --- text ops ---
+function replaceOnce(text, find, repl) {
+  const idx = text.indexOf(find);
+  if (idx < 0) return { changed:false, out:text, count:0 };
+  const out = text.slice(0,idx) + repl + text.slice(idx+find.length);
+  return { changed:true, out, count:1 };
+}
+function replaceAll(text, find, repl) {
+  if (!find) return { changed:false, out:text, count:0 };
+  let count = 0;
+  let out = text;
+  let idx;
+  while ((idx = out.indexOf(find)) !== -1) {
+    out = out.slice(0, idx) + repl + out.slice(idx + find.length);
+    count++;
+  }
+  return { changed: count>0, out, count };
+}
+function replaceRegex(text, pattern, flags, repl) {
+  const rx = new RegExp(pattern, flags || "");
+  if (!rx.test(text)) return { changed:false, out:text, count:0 };
+  const out = text.replace(rx, repl);
+  // meilleure estimation du nombre de remplacements si /g, sinon 1
+  let count = 0;
+  if (flags?.includes('g')) {
+    const m = text.match(new RegExp(pattern, flags));
+    count = m ? m.length : 0;
+  } else count = 1;
+  return { changed:true, out, count };
+}
+function byLines(text) { return text.replace(/\r\n/g, "\n").split("\n"); }
+function joinLines(lines) { return lines.join("\n"); }
+
+function insertAfterAnchor(text, anchor, linesToInsert) {
+  const lines = byLines(text);
+  const idx = lines.findIndex(l => l.includes(anchor));
+  if (idx < 0) return { changed:false, out:text, info:`anchor "${anchor}" introuvable` };
+  const insert = Array.isArray(linesToInsert) ? linesToInsert : [String(linesToInsert ?? "")];
+  lines.splice(idx+1, 0, ...insert);
+  return { changed:true, out: joinLines(lines) };
+}
+function insertBeforeAnchor(text, anchor, linesToInsert) {
+  const lines = byLines(text);
+  const idx = lines.findIndex(l => l.includes(anchor));
+  if (idx < 0) return { changed:false, out:text, info:`anchor "${anchor}" introuvable` };
+  const insert = Array.isArray(linesToInsert) ? linesToInsert : [String(linesToInsert ?? "")];
+  lines.splice(idx, 0, ...insert);
+  return { changed:true, out: joinLines(lines) };
+}
+function insertAfterLine(text, regex, flags, linesToInsert) {
+  const rx = new RegExp(regex, flags || "");
+  const lines = byLines(text);
+  const idx = lines.findIndex(l => rx.test(l));
+  if (idx < 0) return { changed:false, out:text, info:`line regex "${regex}" introuvable` };
+  const insert = Array.isArray(linesToInsert) ? linesToInsert : [String(linesToInsert ?? "")];
+  lines.splice(idx+1, 0, ...insert);
+  return { changed:true, out: joinLines(lines) };
+}
+function insertBeforeLine(text, regex, flags, linesToInsert) {
+  const rx = new RegExp(regex, flags || "");
+  const lines = byLines(text);
+  const idx = lines.findIndex(l => rx.test(l));
+  if (idx < 0) return { changed:false, out:text, info:`line regex "${regex}" introuvable` };
+  const insert = Array.isArray(linesToInsert) ? linesToInsert : [String(linesToInsert ?? "")];
+  lines.splice(idx, 0, ...insert);
+  return { changed:true, out: joinLines(lines) };
+}
+function deleteLine(text, find, regex, flags) {
+  const lines = byLines(text);
+  let changed = false;
+  let out;
+  if (regex) {
+    const rx = new RegExp(regex, flags || "");
+    out = lines.filter(l => {
+      const hit = rx.test(l);
+      if (hit) changed = true;
+      return !hit;
+    });
+  } else {
+    out = lines.filter(l => {
+      const hit = l.includes(find);
+      if (hit) changed = true;
+      return !hit;
+    });
+  }
+  return { changed, out: joinLines(out) };
+}
+
+// --- apply ops on a single text ---
+function applyOpsToText(text, ops, reportArr) {
+  let cur = text;
+  let anyChange = false;
 
   for (const op of ops) {
-    const type = op.type;
-    try {
-      switch (type) {
-        case 'replace_once': {
-          const find = ensureString(op.find);
-          const repl = ensureString(op.replace);
-          const idx = text.indexOf(find);
-          if (idx === -1) { addRpt(`  - replace_once: NON TROUVÉ (${find.slice(0,80)}…)`); break; }
-          text = text.replace(find, repl);
-          lines = text.split('\n');
-          addRpt(`  + replace_once: OK (longueur ${find.length}→${repl.length})`);
-          break;
-        }
-        case 'replace_all': {
-          const find = ensureString(op.find);
-          const repl = ensureString(op.replace);
-          const count = (text.match(new RegExp(find.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length;
-          if (!count) { addRpt(`  - replace_all: 0 occur.`); break; }
-          text = text.split(find).join(repl);
-          lines = text.split('\n');
-          addRpt(`  + replace_all: ${count} occur. remplacée(s)`);
-          break;
-        }
-        case 'insert_after': {
-          const anchor = ensureString(op.anchor);
-          const pos = lines.findIndex(line => line.includes(anchor));
-          if (pos === -1) { addRpt(`  - insert_after: ancre NON TROUVÉE`); break; }
-          const ins = ensureString(op.text);
-          lines.splice(pos + 1, 0, ...ins.split('\n'));
-          text = lines.join('\n');
-          addRpt(`  + insert_after: après la 1ère ancre (#${pos+1})`);
-          break;
-        }
-        case 'insert_before': {
-          const anchor = ensureString(op.anchor);
-          const pos = lines.findIndex(line => line.includes(anchor));
-          if (pos === -1) { addRpt(`  - insert_before: ancre NON TROUVÉE`); break; }
-          const ins = ensureString(op.text);
-          lines.splice(pos, 0, ...ins.split('\n'));
-          text = lines.join('\n');
-          addRpt(`  + insert_before: avant la 1ère ancre (#${pos+1})`);
-          break;
-        }
-        case 'delete_lines': {
-          const from = Math.max(1, parseInt(op.from,10));
-          const to   = Math.max(from, parseInt(op.to,10));
-          const startIdx = from - 1;
-          const count = Math.min(lines.length - startIdx, to - from + 1);
-          if (count <= 0) { addRpt(`  - delete_lines: plage vide`); break; }
-          lines.splice(startIdx, count);
-          text = lines.join('\n');
-          addRpt(`  + delete_lines: #${from}→#${to} (${count} lignes)`);
-          break;
-        }
-        case 'replace_range': {
-          const from = Math.max(1, parseInt(op.from,10));
-          const to   = Math.max(from, parseInt(op.to,10));
-          const startIdx = from - 1;
-          const count = Math.min(lines.length - startIdx, to - from + 1);
-          const replacement = ensureString(op.text).split('\n');
-          if (count <= 0) { addRpt(`  - replace_range: plage vide`); break; }
-          lines.splice(startIdx, count, ...replacement);
-          text = lines.join('\n');
-          addRpt(`  + replace_range: #${from}→#${to} (${count}→${replacement.length} lignes)`);
-          break;
-        }
-        case 'append': {
-          const ins = ensureString(op.text);
-          if (text.length && !text.endsWith('\n')) text += '\n';
-          text += ins;
-          lines = text.split('\n');
-          addRpt(`  + append: ${ins.split('\n').length} ligne(s) ajoutée(s) en fin de fichier`);
-          break;
-        }
-        case 'prepend': {
-          const ins = ensureString(op.text);
-          text = ins + (ins.endsWith('\n') ? '' : '\n') + text;
-          lines = text.split('\n');
-          addRpt(`  + prepend: ${ins.split('\n').length} ligne(s) ajoutée(s) en début de fichier`);
-          break;
-        }
-        default:
-          addRpt(`  - OP inconnue: ${type}`);
-      }
-    } catch (e) {
-      addRpt(`  ! OP ${type} → ERREUR: ${String(e)}`);
+    let res = { changed:false, out:cur }; let note = "";
+    switch (op.type) {
+      case "replace":
+        res = replaceOnce(cur, op.find ?? "", op.replace ?? "");
+        reportArr.push(`  + replace: ${res.changed ? "1 occur. remplacée" : "0"}`);
+        break;
+      case "replace_all":
+        res = replaceAll(cur, op.find ?? "", op.replace ?? "");
+        reportArr.push(`  + replace_all: ${res.count} occur. remplacée(s)`);
+        break;
+      case "replace_regex":
+        res = replaceRegex(cur, op.pattern ?? "", op.flags ?? "", op.replace ?? "");
+        reportArr.push(`  + replace_regex: ${res.changed ? `${res.count||"?"} occur.` : "0"}`);
+        break;
+      case "insert_after_anchor":
+        res = insertAfterAnchor(cur, op.anchor ?? "", op.lines ?? []);
+        note = res.changed ? "" : ` (${res.info||"anchor manquante"})`;
+        reportArr.push(`  + insert_after_anchor: ${res.changed ? "OK" : "NOOP"}${note}`);
+        break;
+      case "insert_before_anchor":
+        res = insertBeforeAnchor(cur, op.anchor ?? "", op.lines ?? []);
+        note = res.changed ? "" : ` (${res.info||"anchor manquante"})`;
+        reportArr.push(`  + insert_before_anchor: ${res.changed ? "OK" : "NOOP"}${note}`);
+        break;
+      case "insert_after_line":
+        res = insertAfterLine(cur, op.line_match?.regex ?? "", op.line_match?.flags ?? "", op.lines ?? []);
+        note = res.changed ? "" : ` (${res.info||"regex sans match"})`;
+        reportArr.push(`  + insert_after_line: ${res.changed ? "OK" : "NOOP"}${note}`);
+        break;
+      case "insert_before_line":
+        res = insertBeforeLine(cur, op.line_match?.regex ?? "", op.line_match?.flags ?? "", op.lines ?? []);
+        note = res.changed ? "" : ` (${res.info||"regex sans match"})`;
+        reportArr.push(`  + insert_before_line: ${res.changed ? "OK" : "NOOP"}${note}`);
+        break;
+      case "delete_line":
+        res = deleteLine(cur, op.find ?? "", op.line_match?.regex, op.line_match?.flags);
+        reportArr.push(`  + delete_line: ${res.changed ? "supprimé(s)" : "0"}`);
+        break;
+      default:
+        reportArr.push(`  - OP inconnue: ${op.type}`);
+        res = { changed:false, out:cur };
     }
+    if (res.changed) { cur = res.out; anyChange = true; }
   }
 
-  return text;
+  return { text: cur, changed: anyChange };
 }
 
-// --------------- DRY-RUN ---------------
+// --- main: dry-run/apply ---
 async function patchDryRun() {
-  safeLog('INFO', '[enter] patchDryRun()');
-  setBusy(true);
-  $('#status').textContent = 'Patch dry-run…';
+  safeLog("INFO", "[enter] patchDryRun()");
+  busy(true);
+  $('#status').textContent = 'Patch — Dry-run…';
 
   try {
-    const ctxUI = readContext();
-    const patch = getPatchJSON();
+    const ctx = readCtx();
+    const spec = getPatchJSON();
 
-    const ctx = {
-      owner:  patch?.target?.owner  || ctxUI.owner,
-      repo:   patch?.target?.repo   || ctxUI.repo,
-      branch: patch?.target?.branch || ctxUI.branch,
-      token:  ctxUI.token, // on n’a pas besoin du token pour un dry-run local
-    };
+    let out = `DRY-RUN — Patching ${ctx.owner}/${ctx.repo}@${ctx.branch}\n\n`;
 
-    if (!Array.isArray(patch?.changes) || !patch.changes.length) {
-      throw new Error('Patch JSON: "changes" vide ou absent');
-    }
-
-    let logTxt = `DRY-RUN — Patching ${ctx.owner}/${ctx.repo}@${ctx.branch}\n\n`;
-
-    for (const change of patch.changes) {
-      const path = ensureString(change.path);
-      const ops  = Array.isArray(change.ops) ? change.ops : [];
-      logTxt += `# ${path}\n`;
-
+    for (const change of spec.changes) {
+      out += `# ${change.path}\n`;
       try {
-        const { text: origText } = await ghGetText({ ...ctx, path });
+        const meta = await ghGetFile({ ...ctx, path: change.path });
+        const text = decodeURIComponent(escape(atob((meta.content || "").replace(/\n/g,""))));
         const report = [];
-        const newText = applyOpsToText(origText, ops, report);
-
-        const changed = (newText !== origText);
-        logTxt += report.map(l => `  ${l}`).join('\n') + '\n';
-        logTxt += changed ? '  => CHANGÉ ✅\n\n' : '  => SANS CHANGEMENT ⏸️\n\n';
-
+        const { text: patched, changed } = applyOpsToText(text, change.ops || [], report);
+        report.forEach(line => out += `    ${line}\n`);
+        out += `  => ${changed ? "CHANGÉ ✅" : "inchangé"}\n\n`;
       } catch (e) {
-        logTxt += `  !! ERREUR lecture: ${String(e)}\n\n`;
+        out += `  !! Erreur: ${String(e)}\n\n`;
       }
     }
 
-    out(logTxt);
-    safeLog('DRYRUN', 'Patch dry-run terminé');
-
+    setOut(out);
+    safeLog("DRYRUN", "Patch dry-run terminé");
   } catch (e) {
-    out(`Erreur dry-run:\n${String(e)}\n`);
-    safeLog('ERROR', 'Patch dry-run échec', { error: String(e) });
+    setOut(`Erreur dry-run:\n${String(e)}\n`);
+    safeLog("ERROR", "Patch dry-run échec", { error: String(e) });
   } finally {
-    setBusy(false);
+    busy(false);
     $('#status').textContent = 'Prêt.';
   }
 }
 
-// --------------- APPLY ---------------
 async function patchApply() {
-  safeLog('INFO', '[enter] patchApply()');
-  setBusy(true);
-  $('#status').textContent = 'Patch apply…';
+  safeLog("INFO", "[enter] patchApply()");
+  busy(true);
+  $('#status').textContent = 'Patch — Apply…';
 
   try {
-    const ctxUI = readContext();
-    const patch = getPatchJSON();
+    const ctx = readCtx();
+    const spec = getPatchJSON();
+    if (!ctx.token) throw new Error("Un PAT GitHub est requis pour Apply.");
 
-    const ctx = {
-      owner:  patch?.target?.owner  || ctxUI.owner,
-      repo:   patch?.target?.repo   || ctxUI.repo,
-      branch: patch?.target?.branch || ctxUI.branch,
-      token:  ctxUI.token,
-    };
-    if (!ctx.token) throw new Error('Un GitHub Token (PAT) est requis pour APPLY.');
+    const committer = { name: 'Patch Tool', email: 'noreply@example.com' };
+    let out = `APPLY — Patching ${ctx.owner}/${ctx.repo}@${ctx.branch}\n\n`;
 
-    const commitMsg   = patch?.commit?.message || 'Apply patch set';
-    const committer   = patch?.commit?.committer || { name: 'Patch Tool', email: 'noreply@example.com' };
-
-    if (!Array.isArray(patch?.changes) || !patch.changes.length) {
-      throw new Error('Patch JSON: "changes" vide ou absent');
-    }
-
-    let ok=0, ko=0;
-    let logTxt = `APPLY — Patching ${ctx.owner}/${ctx.repo}@${ctx.branch}\n\n`;
-
-    for (const change of patch.changes) {
-      const path = ensureString(change.path);
-      const ops  = Array.isArray(change.ops) ? change.ops : [];
-      logTxt += `# ${path}\n`;
-
+    for (const change of spec.changes) {
+      out += `# ${change.path}\n`;
       try {
-        const { text: origText, sha } = await ghGetText({ ...ctx, path });
+        const meta = await ghGetFile({ ...ctx, path: change.path });
+        const original = decodeURIComponent(escape(atob((meta.content || "").replace(/\n/g,""))));
         const report = [];
-        const newText = applyOpsToText(origText, ops, report);
+        const { text: patched, changed } = applyOpsToText(original, change.ops || [], report);
+        report.forEach(line => out += `    ${line}\n`);
+        if (!changed) { out += `  => inchangé (skip)\n\n`; continue; }
 
-        const changed = (newText !== origText);
-        logTxt += report.map(l => `  ${l}`).join('\n') + '\n';
-
-        if (!changed) {
-          logTxt += '  => SANS CHANGEMENT ⏸️\n\n';
-          continue;
-        }
-
-        await ghPutText({
+        await ghPutFile({
           ...ctx,
-          path,
-          text: newText,
-          sha,
-          message: `${commitMsg} — ${path}`,
+          path: change.path,
+          sha: meta.sha,
+          content: patched,
+          message: change.message || `Patch: update ${change.path}`,
           committer,
         });
-
-        ok++;
-        logTxt += '  => ÉCRIT ✅\n\n';
-        safeLog('APPLY', 'Patch applied', { path });
-
+        out += `  => ÉCRIT ✅\n\n`;
+        safeLog("APPLY", "Patched", { path: change.path });
       } catch (e) {
-        ko++;
-        logTxt += `  !! ERREUR: ${String(e)}\n\n`;
-        safeLog('ERROR', 'Patch apply failed', { path, error: String(e) });
+        out += `  !! Erreur: ${String(e)}\n\n`;
+        safeLog("ERROR", "Patch apply error", { path: change.path, error: String(e) });
       }
     }
 
-    logTxt += `Résumé: ${ok} fichier(s) modifié(s), ${ko} échec(s)\n`;
-    out(logTxt);
-    safeLog('SUMMARY', 'Patch apply terminé', { ok, ko });
-
+    setOut(out);
+    safeLog("SUMMARY", "Patch apply terminé");
   } catch (e) {
-    out(`Erreur apply:\n${String(e)}\n`);
-    safeLog('ERROR', 'Patch apply échec', { error: String(e) });
+    setOut(`Erreur apply:\n${String(e)}\n`);
+    safeLog("ERROR", "Patch apply échec", { error: String(e) });
   } finally {
-    setBusy(false);
+    busy(false);
     $('#status').textContent = 'Prêt.';
   }
 }
 
-// Brancher boutons
-$('#btn-patch-dryrun')?.addEventListener('click', patchDryRun);
+// --- wire buttons ---
+$('#btn-patch-dry')  ?.addEventListener('click', patchDryRun);
 $('#btn-patch-apply')?.addEventListener('click', patchApply);
 
-// Sentinelles
-window.addEventListener('unhandledrejection', e=>{
-  safeLog('ERROR', 'unhandledrejection (patch)', { reason: String(e?.reason) });
-});
-window.addEventListener('error', e=>{
-  safeLog('ERROR', 'window.onerror (patch)', { message: e?.message, source: e?.filename, line: e?.lineno, col: e?.colno });
-});
+// sentinelles
+window.addEventListener('unhandledrejection', e => safeLog('ERROR','unhandledrejection (patch)', { reason:String(e?.reason) }));
+window.addEventListener('error', e => safeLog('ERROR','window.onerror (patch)', { message:e?.message, source:e?.filename, line:e?.lineno, col:e?.colno }));
