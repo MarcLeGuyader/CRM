@@ -63,6 +63,52 @@ function selectCompany(currentId){
   });
   return sel;
 }
+
+// --- Clients helper (liste à partir de state.rows ou companies)
+function resolveClients(){
+  const state = window.DATA?.orchestrator?.getState?.() || {};
+  const fromRows = Array.isArray(state.rows) ? state.rows.map(r => r?.client).filter(Boolean) : [];
+  const fromCompanies = Array.isArray(state.companies) ? state.companies.map(c => c?.name).filter(Boolean) : [];
+  return Array.from(new Set([...fromRows, ...fromCompanies])).sort();
+}
+function selectClient(current){
+  const clients = resolveClients();
+  const sel = el('select', { name: 'client' });
+  const ph = el('option', { value: '', text: clients.length ? '(choose client...)' : '(no clients)' });
+  if (!current) ph.selected = true;
+  sel.appendChild(ph);
+  clients.forEach(n => {
+    const opt = el('option', { value: n, text: n });
+    if (n === current) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  return sel;
+}
+
+// --- Lead sources helper (dérive des rows; pas de liste canonique détectée)
+function resolveLeadSources(){
+  const state = window.DATA?.orchestrator?.getState?.() || {};
+  const fromRows = Array.isArray(state.rows) ? state.rows.map(r => r?.leadSource).filter(Boolean) : [];
+  return Array.from(new Set(fromRows)).sort();
+}
+function selectLeadSource(current){
+  const sources = resolveLeadSources();
+  if (!sources.length) {
+    // fallback input when no known list
+    return el('input', { name: 'leadSource', value: current || '' });
+  }
+  const sel = el('select', { name: 'leadSource' });
+  const ph = el('option', { value: '', text: '(choose lead source...)' });
+  if (!current) ph.selected = true;
+  sel.appendChild(ph);
+  sources.forEach(s => {
+    const opt = el('option', { value: s, text: s });
+    if (s === current) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  return sel;
+}
+
 export function collectOpportunityDraftFromForm(dlg){
   const get = sel => (dlg.querySelector(sel)?.value || '').trim();
   const cv = get('input[name="closingValue"]');
@@ -72,8 +118,8 @@ export function collectOpportunityDraftFromForm(dlg){
     id: idFromDataset || idFromInput || undefined,
     name: get('input[name="name"]'),
     salesStep: get('select[name="salesStep"]'),
-    leadSource: get('input[name="leadSource"]') || undefined,
-    client: get('input[name="client"]'),
+    leadSource: get('select[name="leadSource"]') || get('input[name="leadSource"]') || undefined,
+    client: get('select[name="client"]') || get('input[name="client"]'),
     owner: get('select[name="owner"]') || get('input[name="owner"]'),
     companyId: get('select[name="companyId"]') || get('input[name="companyId"]') || undefined,
     contactId: get('input[name="contactId"]') || undefined,
@@ -112,7 +158,7 @@ export function renderOpportunityDialog({
   const hdr = el('header', {}, [
     el('div', {}, [
       el('h3', { text: title }),
-      el('div', { html: row?.id ? '<small style="color:#6b7280;display:block;margin-top:2px">ID: ' + row.id + '</small>' : '' })
+      el('div', { html: row?.id ? '<small style="color:#374151;display:block;margin-top:2px;font-weight:600">ID: ' + row.id + '</small>' : '' })
     ])
   ]);
 
@@ -122,8 +168,8 @@ export function renderOpportunityDialog({
   const grid = el('div', { class: 'grid2' }, [
     wrap('Name', el('input', { name: 'name', value: row?.name || '' })),
     wrap('Sales step', selectStep(row?.salesStep || '', getSalesSteps)),
-    wrap('Lead source', el('input', { name: 'leadSource', value: row?.leadSource || '' })),
-    wrap('Client', el('input', { name: 'client', value: row?.client || '' })),
+    wrap('Lead source', selectLeadSource(row?.leadSource || '')),
+    wrap('Client', selectClient(row?.client || '')),
     wrap('Owner', selectOwner(row?.owner || '', getOwners)),
     wrap('Company', selectCompany(row?.companyId || '')),
     wrap('Contact Name', el('div', {}, [ link(contactName, () => openContact((row?.contactId||'').trim())) ])),
