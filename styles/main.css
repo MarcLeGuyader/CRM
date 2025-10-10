@@ -26,9 +26,8 @@ header {
   font-family: monospace;
   white-space: pre-wrap;
   overflow-y: auto;
-  min-height: 180px;
-  max-height: 260px;
 }
+
 
 /* Filtres — sous la console debug */
 section#filters {
