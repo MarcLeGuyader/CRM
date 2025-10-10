@@ -1,6 +1,6 @@
 // tools/patch-tools.js — Outil Patch (Dry-run / Apply) — support étendu des opérations
 
-export const BUILD_TAG = { file: "patch-tools.js", note: "v3" };
+export const BUILD_TAG = { file: "patch-tools.js", note: "v4" };
 
 const TV = window.TV;
 const $ = (s) => document.querySelector(s);
@@ -33,6 +33,50 @@ async function ghPutFile({ owner, repo, branch, token, path, sha, content, messa
   }
   return res.json();
 }
+
+
+// --- Préconditions strictes avant patch ---
+// Hash helper (UTF-8 → SHA-256 hex)
+async function sha256Hex(text) {
+  const enc = new TextEncoder().encode(text);
+  const buf = await crypto.subtle.digest("SHA-256", enc);
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+// Vérifie les préconditions (strict par défaut)
+async function checkPreconditions(meta, text, pre, logFn) {
+  if (!pre) return { ok: true, why: "no-pre" };
+  const log = logFn || ((t, m, d) => console.log(t, m, d));
+
+  const size = typeof meta?.size === "number" ? meta.size : text.length;
+  const shaGit = meta?.sha || null;
+  const sha256 = await sha256Hex(text);
+
+  const fails = [];
+  if (pre.expectSize && pre.expectSize !== size) fails.push(`size ${size}≠${pre.expectSize}`);
+  if (pre.expectSha && pre.expectSha !== shaGit) fails.push(`sha ${shaGit}≠${pre.expectSha}`);
+  if (pre.expectIncludes && !text.includes(pre.expectIncludes)) fails.push(`missing "${pre.expectIncludes}"`);
+  if (pre.expectHash?.algo?.toLowerCase() === "sha256" && pre.expectHash.value !== sha256)
+    fails.push(`sha256 ${sha256}≠${pre.expectHash.value}`);
+
+  const strict = pre.strict !== false; // true par défaut
+  const ok = fails.length === 0;
+
+  if (!ok && strict) {
+    log("ERROR", "[preconditions] mismatch strict", { path: meta?.path, fails, metaSha: shaGit, size, sha256 });
+    return { ok: false, why: "strict-mismatch", detail: fails };
+  }
+  if (!ok && !strict) {
+    log("WARN", "[preconditions] mismatch (relaxed)", { fails });
+  } else if (ok) {
+    log("INFO", "[preconditions] OK", { sha: shaGit, size, sha256 });
+  }
+  return { ok: ok || !strict, why: ok ? "ok" : "relaxed" };
+}
+
+
+
+
 
 // --- UI helpers ---
 const busy = (on) => {
@@ -221,6 +265,14 @@ async function patchDryRun() {
         safeLog("VERBOSE", `[patchDryRun] Fichier récupéré`, { path: change.path, size: meta.content?.length });
 
         const text = decodeURIComponent(escape(atob((meta.content || "").replace(/\n/g,""))));
+        const pre = change.pre;
+        const preChk = await checkPreconditions(meta, text, pre, TV?.log);
+        if (!preChk.ok) {
+          out += `  ❌ Préconditions NON satisfaites — patch ignoré (strict)\n\n`;
+          continue;
+        }
+
+        
         const report = [];
         const { text: patched, changed } = applyOpsToText(text, change.ops || [], report);
         safeLog("VERBOSE", `[patchDryRun] ${change.ops?.length || 0} opérations exécutées`, { changed });
@@ -262,6 +314,15 @@ async function patchApply() {
       try {
         const meta = await ghGetFile({ ...ctx, path: change.path });
         const original = decodeURIComponent(escape(atob((meta.content || "").replace(/\n/g,""))));
+
+
+        const pre = change.pre;
+        const preChk = await checkPreconditions(meta, text, pre, TV?.log);
+        if (!preChk.ok) {
+          out += `  ❌ Préconditions NON satisfaites — patch ignoré (strict)\n\n`;
+          continue;
+        }
+
         const report = [];
         const { text: patched, changed } = applyOpsToText(original, change.ops || [], report);
         report.forEach(line => out += `    ${line}\n`);
