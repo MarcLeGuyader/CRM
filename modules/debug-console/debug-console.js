@@ -41,17 +41,19 @@
     const bus = findBus();
     createStyles();
 
-    const opts = Object.assign({ open: true, minLines: 10 }, options || {});
+    const opts = Object.assign({ open: false, minLines: 10 }, options || {});
     const root = document.createElement('section');
+// sync container visibility with root hidden state
+if (!opts.open) {
+  try { container.classList.add('hidden'); } catch {}
+}
     root.className = 'debug-console' + (opts.open ? '' : ' hidden');
     root.setAttribute('role', 'region');
     root.setAttribute('aria-label', 'Debug console');
 
     // Assure une hauteur minimale côté conteneur, même si le CSS externe est absent
     // 10 lignes ≈ 12px * 1.5 * 10 = 180px
-    container.style.minHeight = container.style.minHeight || '180px';
-
-    root.innerHTML = [
+        root.innerHTML = [
       '<div class="debug-console__hdr">',
         '<strong>Debug console</strong>',
         '<div class="debug-console__btns">',
@@ -61,7 +63,7 @@
         '</div>',
       '</div>',
       // on pose min-height directement ici pour iPad/Safari
-      '<pre class="debug-console__pre" id="debug-log" aria-live="polite" style="min-height:180px; max-height:260px;"></pre>'
+      '<pre class="debug-console__pre" id="debug-log" aria-live="polite"></pre>'
     ].join('');
     container.appendChild(root);
 
@@ -87,6 +89,8 @@
     }
 
     function toggle(force){
+      // hide or show the outer container as well
+      try { container.classList.toggle('hidden', !show); } catch {}
       const show = (force === undefined) ? root.classList.contains('hidden') : !!force;
       root.classList.toggle('hidden', !show);
       root.setAttribute('aria-hidden', String(!show));
@@ -141,9 +145,8 @@
     const api = { log: write, toggle, clear };
 
     // Ouvert + 10 lignes au montage
-    if (opts.open) {
-      toggle(true);
-    }
+    // open state handled by classes; ensureMinLines only if shown
+if (opts.open) { ensureMinLines(); }
     ensureMinLines();
 
     root.__debugConsoleAPI = api;
