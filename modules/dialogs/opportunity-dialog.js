@@ -57,7 +57,7 @@ export function renderOpportunityDialog({
   resolveContactName,
   getSalesSteps,
   openCompany,
-  openContact
+  openContact, onCancel
 }) {
   const row = id ? (getOpportunityById(id) || null) : null;
   const title = row ? `Edit Opportunity ${row.name || row.id}` : 'New Opportunity';
@@ -90,6 +90,14 @@ export function renderOpportunityDialog({
 
   const errors = el('pre', { class: 'crm-errors' });
   const actions = el('menu', {}, [
+// wire Cancel → close via parent onCancel (fallback to local close)
+const btnCancel = actions.querySelector('[data-role="cancel"]');
+btnCancel?.addEventListener('click', (ev) => {
+  ev.preventDefault();
+  try { if (typeof onCancel === 'function') return onCancel(); } catch {}
+  try { dlg.close?.(); } catch {}
+  try { dlg.remove?.(); } catch {}
+});
     el('button', { class: 'crm-btn', 'data-role': 'cancel' }, [document.createTextNode('Cancel')]),
     el('button', { class: 'crm-btn primary', 'data-role': 'save' }, [document.createTextNode('Save')])
   ]);
