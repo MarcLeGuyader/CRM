@@ -284,10 +284,28 @@ async function patchApply() {
   }
 }
 
+setOut(out);
+    safeLog("SUMMARY", "Patch apply terminé");
+  } catch (e) {
+    setOut(`Erreur apply:\n${String(e)}\n`);
+    safeLog("ERROR", "Patch apply échec", { error: String(e) });
+  } finally {
+    busy(false);
+    $('#status').textContent = 'Prêt.';
+  }
+}
+
 // --- wire buttons ---
 $('#btn-patch-dry')  ?.addEventListener('click', patchDryRun);
 $('#btn-patch-apply')?.addEventListener('click', patchApply);
 
 // sentinelles
-window.addEventListener('unhandledrejection', e => safeLog('ERROR','unhandledrejection (patch)', { reason:String(e?.reason) }));
-window.addEventListener('error', e => safeLog('ERROR','window.onerror (patch)', { message:e?.message, source:e?.filename, line:e?.lineno, col:e?.colno }));
+window.addEventListener('unhandledrejection', e => 
+  safeLog('ERROR','unhandledrejection (patch)', { reason:String(e?.reason) })
+);
+window.addEventListener('error', e => 
+  safeLog('ERROR','window.onerror (patch)', { message:e?.message, source:e?.filename, line:e?.lineno, col:e?.colno })
+);
+
+// Expose tag global pour le résumé de build (index.html)
+window.PATCH_BUILD_TAG = BUILD_TAG;
