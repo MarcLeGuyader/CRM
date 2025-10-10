@@ -8,7 +8,7 @@
   --warn:#c92a2a;
   --violet:#6f42c1;
   --build-tag-css-file: "styles.css";
-  --build-tag-css-note: "V4 - debug";
+  --build-tag-css-note: "V5 - grid";
 }
 
 *{box-sizing:border-box}
@@ -30,7 +30,7 @@ input,select,textarea{border:1px solid #d8dee6;border-radius:8px;padding:8px;fon
 button{border:1px solid var(--line);border-radius:8px;background:#fff;padding:8px 12px;cursor:pointer}
 button.primary{background:var(--brand);color:#fff;border-color:var(--brand)}
 button.ghost{background:transparent;border-color:#c6d2df}
-button.danger{background:var(--warn);color:#fff;border-color:var(--warn)}
+button.danger{background:var(--warn);color:#fff;border-color:#var(--warn)}
 button:disabled{opacity:.6;cursor:not-allowed}
 .status{margin-left:auto;color:#334155}
 
@@ -39,27 +39,39 @@ button:disabled{opacity:.6;cursor:not-allowed}
 .tree-panel,.tools-panel{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px}
 
 /* Arborescence */
-.tree{max-height:520px;overflow:auto;border:1px dashed #dbe3ec;border-radius:8px;padding:8px;margin-top:8px;font-family:ui-monospace,monospace;font-size:13px;background:#fff}
+.tree{
+  max-height:520px;overflow:auto;border:1px dashed #dbe3ec;border-radius:8px;
+  padding:8px;margin-top:8px;font-family:ui-monospace,monospace;font-size:13px;background:#fff
+}
 .branch{list-style:none;margin:0;padding-left:16px;border-left:1px dashed #e2e8f0}
 .branch>li{margin:2px 0}
-.node{display:flex;align-items:center;gap:8px;padding:2px 6px;color:#0b1320}
+
+/* LIGNE EN GRID: chevron | checkbox | nom */
+.node{
+  display:grid;
+  grid-template-columns: 16px auto 1fr;
+  align-items:center;
+  gap:8px;
+  padding:2px 6px;
+  color:#0b1320;
+}
+
+/* Chevron */
 .node .toggle{
   width:16px;
   text-align:center;
   cursor:pointer;
   user-select:none;
-  flex:0 0 16px;          /* fixe la largeur du chevron en flex */
 }
-.node input[type="checkbox"]{
-  flex:0 0 auto;          /* évite que la checkbox s'étire */
-}
+
+/* Nom avec ellipsis fiable (Safari/iPad) */
 .node .name{
-  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-  max-width:calc(100% - 80px);
-  display:inline-block;
+  min-width:0;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  display:block;
 }
-
-
 .folder{font-weight:600}
 
 /* Radios (alignement propre input/label) */
@@ -120,12 +132,4 @@ pre#log{
 @media (max-width:900px){
   .grid-4{grid-template-columns:1fr 1fr}
   .main{grid-template-columns:1fr}
-  .node .name{max-width:100%}
 }
-
-
-/* ==== DEBUG MODE (temporaire) ==== */
-.node { outline: 1px dashed #f59e0b; }
-.node .toggle { outline: 1px solid #22c55e; }
-.node input[type="checkbox"] { outline: 1px solid #06b6d4; }
-.node .name { background: rgba(255, 255, 0, .2); outline: 1px solid #ef4444; }
