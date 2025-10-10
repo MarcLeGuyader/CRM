@@ -111,30 +111,26 @@
   <!-- Scripts -->
   <script type="module" src="./app.js?v=12"></script>
   <script type="module" src="./json-tools.js?v=12"></script>
-  <script type="module" src="./tools/clean-tools.js?v=1"></script>
+  <script type="module" src="./clean-tools.js?v=1"></script>
 
-<script type="module">
-import { BUILD_TAG as APP_TAG } from "./app.js";
-import { BUILD_TAG as JSON_TAG } from "./json-tools.js";
+  <script>
+    window.addEventListener("DOMContentLoaded", () => {
+      const cssVars = getComputedStyle(document.documentElement);
+      const cssFile = cssVars.getPropertyValue("--build-tag-css-file").replace(/"/g, "").trim();
+      const cssNote = cssVars.getPropertyValue("--build-tag-css-note").replace(/"/g, "").trim();
 
-window.addEventListener("DOMContentLoaded", () => {
-  const cssVars = getComputedStyle(document.documentElement);
-  const cssFile = cssVars.getPropertyValue("--build-tag-css-file").replace(/"/g, "").trim();
-  const cssNote = cssVars.getPropertyValue("--build-tag-css-note").replace(/"/g, "").trim();
+      const summary = [
+        `${window.APP_BUILD_TAG?.file || "app.js"}: ${window.APP_BUILD_TAG?.note || "?"}`,
+        `${window.JSON_BUILD_TAG?.file || "json-tools.js"}: ${window.JSON_BUILD_TAG?.note || "?"}`,
+        `${window.CLEAN_BUILD_TAG?.file || "clean-tools.js"}: ${window.CLEAN_BUILD_TAG?.note || "?"}`,
+        `${cssFile}: ${cssNote}`,
+      ].join(" | ");
 
-  const summary = [
-    `${APP_TAG.file}: ${APP_TAG.note}`,
-    `${JSON_TAG.file}: ${JSON_TAG.note}`,
-    `${cssFile}: ${cssNote}`,
-  ].join(" | ");
+      if (window.TV?.log) window.TV.log("SUMMARY", "📦 Build tags", { summary });
+      else console.log("📦 Build tags:", summary);
+    });
+  </script>
 
-  if (window.TV?.log) window.TV.log("SUMMARY", "📦 Build tags", { summary });
-  else console.log("📦 Build tags:", summary);
-});
-</script>
-
-
-  
   <!-- Tabs controller -->
   <script>
     (function tabsInit(){
@@ -143,7 +139,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
       function activate(idx, pushHash=true){
         tabButtons.forEach((b,i)=> b.setAttribute('aria-selected', String(i===idx)));
-        panels.forEach((p,i)=> i===idx ? p.removeAttribute('hidden') : p.setAttribute('hidden','') );
+        panels.forEach((p,i)=> i===idx ? p.removeAttribute('hidden') : p.setAttribute('hidden',''));
         if (pushHash) {
           const id = tabButtons[idx]?.id?.replace('tabbtn-','') || 'json';
           try { history.replaceState(null, '', `#tab=${id}`); } catch {}
