@@ -204,29 +204,40 @@ async function patchDryRun() {
 
   try {
     const ctx = readCtx();
+    safeLog("VERBOSE", "[patchDryRun] context", ctx);
+
     const spec = getPatchJSON();
+    safeLog("VERBOSE", `[patchDryRun] ${spec.changes.length} fichier(s) à traiter`);
 
     let out = `DRY-RUN — Patching ${ctx.owner}/${ctx.repo}@${ctx.branch}\n\n`;
 
+    let i = 0;
     for (const change of spec.changes) {
+      i++;
+      safeLog("VERBOSE", `[patchDryRun] Fichier ${i}/${spec.changes.length}: ${change.path}`);
       out += `# ${change.path}\n`;
       try {
         const meta = await ghGetFile({ ...ctx, path: change.path });
+        safeLog("VERBOSE", `[patchDryRun] Fichier récupéré`, { path: change.path, size: meta.content?.length });
+
         const text = decodeURIComponent(escape(atob((meta.content || "").replace(/\n/g,""))));
         const report = [];
         const { text: patched, changed } = applyOpsToText(text, change.ops || [], report);
+        safeLog("VERBOSE", `[patchDryRun] ${change.ops?.length || 0} opérations exécutées`, { changed });
+
         report.forEach(line => out += `    ${line}\n`);
         out += `  => ${changed ? "CHANGÉ ✅" : "inchangé"}\n\n`;
       } catch (e) {
+        safeLog("ERROR", `[patchDryRun] Erreur sur ${change.path}`, { error: String(e) });
         out += `  !! Erreur: ${String(e)}\n\n`;
       }
     }
 
     setOut(out);
-    safeLog("DRYRUN", "Patch dry-run terminé");
+    safeLog("INFO", "[patchDryRun] terminé");
   } catch (e) {
     setOut(`Erreur dry-run:\n${String(e)}\n`);
-    safeLog("ERROR", "Patch dry-run échec", { error: String(e) });
+    safeLog("ERROR", "[patchDryRun] échec", { error: String(e) });
   } finally {
     busy(false);
     $('#status').textContent = 'Prêt.';
