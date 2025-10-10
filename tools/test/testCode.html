@@ -21,11 +21,17 @@
   <h1>TestCode • Patch Harness</h1>
   <div class="card">
     <!-- [PATCH] commentaire avant le conteneur out -->
+    <!-- [PATCH] commentaire avant le conteneur out -->
     <div id="out"></div>
   </div>
 
   <!-- Deux balises script avec des différences légères pour tester insert_before/after sélectif -->
   <!-- [PATCH-ANCHOR:SCRIPT-AREA] -->
+  <script>
+    // [PATCH] script ajouté via anchor
+    console.log('[PATCH] extra inline script OK');
+  </script>
+  <!-- [PATCH] commentaire après le premier </script> -->
   <script>
     // [PATCH] script ajouté via anchor
     console.log('[PATCH] extra inline script OK');
