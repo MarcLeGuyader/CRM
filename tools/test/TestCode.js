@@ -3,6 +3,8 @@
 
    ANCHORS (utiles pour insert_before / insert_after):
    - [PATCH-ANCHOR:IMPORTS]
+// [PATCH test] injected once after IMPORTS
+const PATCH_TEST = 'imports-test';
 // [PATCH v3] inserted after IMPORTS (once)
 const PATCH_V3 = 'imports-v3';
 // [PATCH] lignes injectées après IMPORTS
@@ -23,6 +25,8 @@ export function __patchHelper__(){ return 'helper-ok'; }
 export function __patchHelper__(){ return 'helper-ok'; }
 // [PATCH v3] helper before EXPORTS
 export function __patchHelperV2__(){ return 'helper-v3'; }
+// [PATCH test] helper before EXPORTS (idempotent if exists)
+export function __patchHelperV3__(){ return 'helper-v3'; }
    - [PATCH-ANCHOR:EXPORTS]
 
    Notes:
@@ -40,13 +44,13 @@ const maybeIntl = typeof Intl !== "undefined" ? Intl : null;
 // Valeurs de config (ancres et clés susceptibles d’être patchées)
 // [PATCH-ANCHOR:CONFIG]
 export const config = {
-  apiBase: "https://api.example.com/v2",
+  apiBase: "https://api.example.com/v3",
   featureFlags: {
     useNewCache: false,
     enableFancyUI: true,
   },
   retry: { count: 3, backoffMs: 250 },
-  brandColor: "#0aa0ff", // (présenté aussi dans le CSS du projet)
+  brandColor: "#0077cc", // (présenté aussi dans le CSS du projet)
 };
 
 // Utilitaires divers
@@ -54,6 +58,7 @@ export const config = {
 // [PATCH] commentaire inséré juste avant sleep()
 // [PATCH] commentaire inséré juste avant sleep()
 // [PATCH v3] note: sleep() instrumentation point
+// [PATCH test] note: instrumentation point before sleep()
 export function sleep(ms = 0) {
   return new Promise(res => setTimeout(res, ms));
 }
@@ -71,6 +76,7 @@ const RX_WORD = /\bword\b/gi;                  // simple
 const RX_QUOTES = /"([^"]*)"|'([^']*)'/g;      // guillemets
 const RX_LOOKBEHIND = /(?<=\s|^)[A-Z][a-z]+/g; // lookbehind (selon moteur)
 const RX_U_FLAG = /\p{Letter}+/gu;             // unicode property (peut varier selon env)
+const RX_DIGITS = /\d+/g; // [PATCH test] extra regex after RX_U_FLAG
 const RX_ALPHA = /[A-Za-z]+/g; // [PATCH v3] extra regex
 
 // Valeurs “grandes” et Symbol
@@ -181,7 +187,7 @@ Flag:   ${flag}
 // [PATCH-ANCHOR:EXPORTS]
 export const examples = {
   simpleText: "replace me once",
-  repeatedText: "repeat repeat repeat",   // plusieurs “repeat”
+  echoedText: "echo echo echo",   // plusieurs “echo”
   tricky: `Line1\nLine2 with "quotes" and 'single-quotes'\nLine3`,
 };
 
