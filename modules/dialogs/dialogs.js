@@ -91,7 +91,7 @@ export function mountDialogs(deps) {
     say('open.start', { type, payload, stackLen: stack.length });
 
     let dlg;
-    if (type === 'opportunity') dlg = renderOpportunityDialog(payload?.id, deps, safeCloseTop);
+    if (type === 'opportunity') dlg = renderOpportunityDialog({ id: payload?.id, ...deps, onCancel: safeCloseTop });
     else if (type === 'company') dlg = renderCompanyDialog(payload?.companyId, deps, safeCloseTop);
     else if (type === 'contact') dlg = renderContactDialog(payload?.contactId, deps, safeCloseTop);
     else throw new Error('Unknown dialog type: ' + type);
