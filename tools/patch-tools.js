@@ -36,7 +36,7 @@ async function ghPutFile({ owner, repo, branch, token, path, sha, content, messa
 
 // --- UI helpers ---
 const busy = (on) => {
-  ["#btn-patch-dry", "#btn-patch-apply"].forEach(id => { const el = $(id); if (el) el.disabled = !!on; });
+  ["#btn-patch-dryrun", "#btn-patch-apply"].forEach(id => { const el = $(id); if (el) el.disabled = !!on; });
 };
 const readCtx = () => ({
   owner:  $('#owner').value.trim(),
@@ -77,7 +77,6 @@ function replaceRegex(text, pattern, flags, repl) {
   const rx = new RegExp(pattern, flags || "");
   if (!rx.test(text)) return { changed:false, out:text, count:0 };
   const out = text.replace(rx, repl);
-  // meilleure estimation du nombre de remplacements si /g, sinon 1
   let count = 0;
   if (flags?.includes('g')) {
     const m = text.match(new RegExp(pattern, flags));
@@ -274,13 +273,12 @@ async function patchApply() {
     }
 
     setOut(out);
-
     safeLog("SUMMARY", "Patch apply terminé");
   } catch (e) {
-    out(`Erreur apply:\n${String(e)}\n`);
+    setOut(`Erreur apply:\n${String(e)}\n`);
     safeLog("ERROR", "Patch apply échec", { error: String(e) });
   } finally {
-    setBusy(false);
+    busy(false);
     document.getElementById('status').textContent = 'Prêt.';
   }
 }
@@ -289,7 +287,7 @@ async function patchApply() {
 document.getElementById('btn-patch-dryrun')?.addEventListener('click', patchDryRun);
 document.getElementById('btn-patch-apply')?.addEventListener('click', patchApply);
 
-// sentinelles
+// --- sentinelles ---
 window.addEventListener('unhandledrejection', e => {
   safeLog('ERROR','unhandledrejection (patch)', { reason:String(e?.reason) });
 });
@@ -299,5 +297,5 @@ window.addEventListener('error', e => {
   });
 });
 
-// Expose tag global pour le résumé de build (index.html)
+// --- expose tag global pour résumé de build ---
 window.PATCH_BUILD_TAG = BUILD_TAG;
