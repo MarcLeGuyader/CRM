@@ -1,6 +1,6 @@
 // tools/patch-tools.js — Outil Patch (Dry-run / Apply) — sécurisé & verbeux
 
-export const BUILD_TAG = { file: "patch-tools.js", note: "v9 - input hardening & smart punctuation fix" };
+export const BUILD_TAG = { file: "patch-tools.js", note: "v10 - add JSON file import button" };
 
 const TV = window.TV;
 const $  = (s) => document.querySelector(s);
@@ -436,6 +436,57 @@ document.getElementById('btn-patch-apply')?.addEventListener('click', patchApply
         if (warn) warn.textContent = '';
       }
     });
+  }
+})();
+
+
+// ---------- Import JSON depuis un fichier (bouton) ----------
+(function setupJsonFileImport(){
+  try {
+    const ta = document.getElementById('patch-in');
+    if (!ta) return; // pas d'éditeur détecté
+
+    // Crée le bouton
+    const btn = document.createElement('button');
+    btn.textContent = '📂 Load JSON file';
+    btn.className = 'ghost';
+    btn.type = 'button';
+    btn.style.margin = '8px 0';
+    // Insère le bouton juste avant le textarea
+    ta.parentNode?.insertBefore(btn, ta);
+
+    // Input fichier caché
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json,application/json';
+    input.style.display = 'none';
+    document.body.appendChild(input);
+
+    btn.addEventListener('click', ()=> input.click());
+    input.addEventListener('change', async ()=>{
+      const file = input.files?.[0];
+      if(!file){ TV?.log?.('WARN','Aucun fichier JSON sélectionné'); return; }
+      try {
+        const rawText = await file.text();
+        // Nettoie d'abord (au cas où) puis parse
+        const cleanText = typeof sanitizeInput === 'function' ? sanitizeInput(rawText, file.name) : rawText;
+        const parsed = JSON.parse(cleanText);
+        // Réinjecte joliment formaté dans le textarea pour inspection/édition
+        ta.value = JSON.stringify(parsed, null, 2);
+        TV?.log?.('INFO', `Fichier JSON importé: ${file.name}`);
+        // Message d'avertissement visuel optionnel
+        const warn = document.getElementById('patch-warn');
+        if (warn) warn.textContent = '';
+      } catch(e){
+        TV?.log?.('ERROR', 'Erreur lecture JSON', { file:file?.name, error:String(e) });
+        alert('Erreur de lecture du fichier JSON : ' + (e?.message || e));
+      } finally {
+        // Permettre un re-choix du même fichier si besoin
+        input.value = '';
+      }
+    });
+  } catch(err){
+    TV?.log?.('ERROR','setupJsonFileImport failed',{ error:String(err) });
   }
 })();
 
