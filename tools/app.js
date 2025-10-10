@@ -1,5 +1,8 @@
 // app.js — TreeView (version précédente stable) + Tri-état + Console + API TV (sans logique JSON)
 
+
+console.log(`📦 app.js loaded - V1');
+
 // ---------- Helpers ----------
 const $ = s => document.querySelector(s);
 const state = { root: null, selection: new Set() };
@@ -137,7 +140,7 @@ function renderTree(root, container){
     const name = document.createElement('span');
     name.className = 'name ' + (n.type==='dir'?'folder':'file');
     name.textContent = n.name || '/';
-    name.style.display = 'block';
+//    name.style.display = 'block';
 
     row.append(toggle, cb, name);
     li.appendChild(row);
