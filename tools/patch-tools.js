@@ -1,10 +1,32 @@
 // tools/patch-tools.js — Outil Patch (Dry-run / Apply) — sécurisé & verbeux
 
-export const BUILD_TAG = { file: "patch-tools.js", note: "v8" };
+export const BUILD_TAG = { file: "patch-tools.js", note: "v9 - input hardening & smart punctuation fix" };
 
 const TV = window.TV;
 const $  = (s) => document.querySelector(s);
 const safeLog = (tag, msg, data) => { try { TV?.log?.(tag, msg, data); } catch {} };
+
+// --- iOS / iPad smart punctuation guard ---
+function desmartUnicode(s) {
+  return String(s ?? "")
+    .normalize('NFKC')
+    .replace(/\uFEFF/g,'')          // BOM
+    .replace(/\u00A0/g,' ')         // NBSP → espace
+    .replace(/[\u2018\u2019]/g,"'") // ‘ ’ → '
+    .replace(/[\u201C\u201D]/g,'"') // “ ” → "
+    .replace(/\u2026/g,'...')       // … → ...
+    .replace(/[\u2013\u2014]/g,'-') // – — → -
+    .replace(/\r\n?/g,'\n');       // CRLF → LF
+}
+function hasSmartChars(s){
+  return /[\uFEFF\u00A0\u2018\u2019\u201C\u201D\u2026\u2013\u2014]/.test(s||"");
+}
+function sanitizeInput(s, fieldName){
+  const clean = desmartUnicode(s);
+  if (hasSmartChars(s) && TV?.log) TV.log('WARN', `[sanitize] ${fieldName||'input'} contained smart chars; normalized`);
+  return clean;
+}
+
 
 // ---------- UTF-8 <-> base64 helpers ----------
 function utf8ToBase64(str) {
@@ -109,7 +131,8 @@ const readCtx = () => ({
   token:  $('#token').value.trim() || null,
 });
 const getPatchJSON = () => {
-  const raw = $('#patch-in')?.value || "";
+  const raw0 = $('#patch-in')?.value || "";
+  const raw  = sanitizeInput(raw0, '#patch-in');
   let j;
   try { j = JSON.parse(raw); } catch(e){ throw new Error(`JSON invalide: ${e.message}`); }
   if (!j || !Array.isArray(j.changes) || j.changes.length===0) {
@@ -383,6 +406,38 @@ async function patchApply() {
 // ---------- Wire buttons ----------
 document.getElementById('btn-patch-dryrun')?.addEventListener('click', patchDryRun);
 document.getElementById('btn-patch-apply')?.addEventListener('click', patchApply);
+
+
+// ---------- Input hardening (on load) ----------
+(function hardenEditors(){
+  const taIn  = document.getElementById('patch-in');
+  const taOut = document.getElementById('patch-out');
+  [taIn, taOut].forEach(ta => {
+    if (!ta) return;
+    ta.setAttribute('autocapitalize','off');
+    ta.setAttribute('autocorrect','off');
+    ta.setAttribute('autocomplete','off');
+    ta.setAttribute('spellcheck','false');
+    ta.setAttribute('inputmode','none');
+    ta.setAttribute('wrap','off');
+  });
+  if (taIn){
+    taIn.addEventListener('input', ()=>{
+      const v = taIn.value;
+      if (hasSmartChars(v)){
+        const pos = taIn.selectionStart;
+        taIn.value = desmartUnicode(v);
+        const p = Math.min(pos, taIn.value.length);
+        taIn.selectionStart = taIn.selectionEnd = p;
+        const warn = document.getElementById('patch-warn');
+        if (warn) warn.textContent = '⚠️ Caractères “smart” détectés et normalisés.';
+      } else {
+        const warn = document.getElementById('patch-warn');
+        if (warn) warn.textContent = '';
+      }
+    });
+  }
+})();
 
 // ---------- Sentinelles ----------
 window.addEventListener('unhandledrejection', e => {
