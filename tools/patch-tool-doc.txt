@@ -1,0 +1,124 @@
+PATCH TOOL — Mode d’emploi + Format JSON
+========================================
+
+But
+---
+Appliquer des "patchs" textuels sur des fichiers du dépôt via l’API GitHub Contents :
+- DRY-RUN : simule et montre ce qui serait changé
+- APPLY   : écrit réellement et commit les fichiers modifiés
+
+Flux recommandé (process)
+-------------------------
+1) On discute du besoin fonctionnel → je propose un plan (fichiers concernés + ops).
+2) Tu me renvoies la liste des fichiers + le plan d’opérations par fichier.
+3) Tu m’envoies le JSON complet des fichiers actuels (si besoin d’audit).
+4) Je fournis un JSON “patch set” prêt à charger.
+5) Tu colles ce JSON dans l’onglet PATCH (#patch-in), puis “Dry-run”.
+6) Si OK : “Apply” pour pousser les modifications (requires PAT).
+
+Pré-requis UI
+-------------
+- Champs déjà présents : #owner, #repo, #branch, #token
+- Onglet “Patch” avec :
+    <textarea id="patch-in"></textarea>
+    <div class="row">
+      <button id="btn-patch-dryrun">Dry-run</button>
+      <button id="btn-patch-apply">Apply</button>
+    </div>
+    <textarea id="patch-out" readonly></textarea>
+
+Authentification
+----------------
+- DRY-RUN : pas besoin de token (lecture publique OK si repo public).
+- APPLY   : besoin d’un PAT (Fine-grained ou classique) avec permission "contents:write".
+
+Schéma JSON du “patch set”
+--------------------------
+{
+  "version": 1,
+  "target": {                 // facultatif (sinon on utilise #owner/#repo/#branch de l’UI)
+    "owner": "MarcLeGuyader",
+    "repo": "CRM",
+    "branch": "main"
+  },
+  "commit": {                 // facultatif
+    "message": "Apply patch set",
+    "committer": { "name": "Patch Tool", "email": "noreply@example.com" }
+  },
+  "changes": [
+    {
+      "path": "tools/app.js",
+      "ops": [
+        { "type": "replace_once",  "find": "name.style.display = 'block';", "replace": "// name.style.display = 'block';" },
+        { "type": "insert_after",  "anchor": "export const TV = {", "text": "  /* new field */\n" },
+        { "type": "append",        "text": "\n// EOF marker\n" }
+      ]
+    },
+    {
+      "path": "tools/styles.css",
+      "ops": [
+        { "type": "replace_all",   "find": "--brand:#1e6091;", "replace": "--brand:#1a6b9a;" },
+        { "type": "insert_before", "anchor": "/* Console */",  "text": "/* --- patch injected --- */\n" }
+      ]
+    }
+  ]
+}
+
+Opérations supportées
+---------------------
+- replace_once:  { "type":"replace_once", "find":"...", "replace":"..." }
+  -> Remplace la 1ère occurrence exacte de `find`.
+
+- replace_all:   { "type":"replace_all", "find":"...", "replace":"..." }
+  -> Remplace TOUTES les occurrences exactes de `find` (recherche textuelle simple).
+
+- insert_after:  { "type":"insert_after", "anchor":"texte ou portion de ligne", "text":"lignes à insérer" }
+  -> Insère APRES la 1ère ligne qui contient `anchor`.
+
+- insert_before: { "type":"insert_before", "anchor":"texte ou portion de ligne", "text":"lignes à insérer" }
+  -> Insère AVANT la 1ère ligne qui contient `anchor`.
+
+- delete_lines:  { "type":"delete_lines", "from":10, "to":20 }
+  -> Supprime les lignes [from..to] inclus (index 1-based).
+
+- replace_range: { "type":"replace_range", "from":10, "to":20, "text":"..." }
+  -> Remplace les lignes [from..to] par `text`.
+
+- append:        { "type":"append", "text":"..." }
+  -> Ajoute en fin de fichier.
+
+- prepend:       { "type":"prepend", "text":"..." }
+  -> Ajoute en début de fichier.
+
+Bonnes pratiques
+----------------
+- DRY-RUN d’abord : vérifie les ancres trouvées, les plages, etc.
+- Granularité : privilégie des `insert_after/insert_before` sur ancres stables.
+- Commits : fournis un `commit.message` clair, le tool ajoute “ — <path>” par fichier.
+- Idempotence : si possible, écrire des patchs qui n’échouent pas s’ils sont rejoués (ex: replace_once + vérifs).
+
+Erreurs fréquentes
+------------------
+- “ancre NON TROUVÉE” : vérifie l’orthographe et la casse. Le moteur cherche “line.includes(anchor)”.
+- “Patch JSON invalide” : valide le JSON (virgule manquante, guillemets, etc.).
+- “PUT … 404/409” : SHA obsolète (conflit), branche incorrecte, ou PAT insuffisant.
+
+Sécurité
+--------
+- Le tool NE modifie QUE les `path` listés sous `changes`.
+- En APPLY, chaque fichier est poussé en un PUT séparé (commit par fichier).
+- Pour un seul commit global, il faudrait basculer en API git (trees/commits) → hors scope simple.
+
+Exemple minimal
+---------------
+{
+  "version": 1,
+  "changes": [
+    {
+      "path": "README.md",
+      "ops": [
+        { "type":"append", "text":"\nPatched at: 2025-10-10\n" }
+      ]
+    }
+  ]
+}
