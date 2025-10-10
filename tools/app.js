@@ -1,7 +1,7 @@
 // app.js — TreeView (version précédente stable) + Tri-état + Console + API TV (sans logique JSON)
 
 
-console.log(`📦 app.js loaded - V1');
+console.log('📦 app.js loaded - V1');
 
 // ---------- Helpers ----------
 const $ = s => document.querySelector(s);
