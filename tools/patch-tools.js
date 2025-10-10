@@ -328,6 +328,16 @@ async function patchApply() {
         report.forEach(line => out += `    ${line}\n`);
         if (!changed) { out += `  => inchangé (skip)\n\n`; continue; }
 
+
+if (typeof patched !== "string") {
+  throw new Error(`patched invalide: ${typeof patched}`);
+}
+safeLog("VERBOSE","[apply] payload ready", {
+  path: change.path,
+  len: patched.length
+});        
+
+
         await ghPutFile({
           ...ctx,
           path: change.path,
