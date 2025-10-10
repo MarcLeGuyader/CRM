@@ -1,6 +1,6 @@
 // tools/patch-tools.js — Outil Patch (Dry-run / Apply) — support étendu des opérations
 
-export const BUILD_TAG = { file: "patch-tools.js", note: "v2 (ops étendues)" };
+export const BUILD_TAG = { file: "patch-tools.js", note: "v3" };
 
 const TV = window.TV;
 const $ = (s) => document.querySelector(s);
