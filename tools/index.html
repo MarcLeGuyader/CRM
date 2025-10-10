@@ -46,6 +46,7 @@
           <button class="tab-btn" role="tab" aria-selected="true" aria-controls="tab-json" id="tabbtn-json">JSON</button>
           <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-clean" id="tabbtn-clean">Clean</button>
           <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-deploy" id="tabbtn-deploy">Deploy</button>
+          <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-patch" id="tabbtn-patch">Patch</button>
         </div>
 
         <!-- Onglet JSON -->
@@ -92,6 +93,26 @@
           </div>
           <textarea id="deploy-out" placeholder="Résultats ou logs du déploiement…" readonly></textarea>
         </div>
+
+      <!-- Onglet Patch -->
+<div id="tab-patch" class="tab-panel" role="tabpanel" aria-labelledby="tabbtn-patch" hidden>
+  <h3>Outil de patch du dépôt</h3>
+  <p class="small muted">
+    Colle ci-dessous le JSON du patch set (voir <code>patch-tool-doc.txt</code>).  
+    Le mode <b>Dry-run</b> simule les modifications, et <b>Apply</b> les applique sur GitHub.
+  </p>
+  <div class="row">
+    <button id="btn-patch-dryrun">Dry-run</button>
+    <button id="btn-patch-apply" class="danger">Apply</button>
+  </div>
+  <label for="patch-in" class="small muted">Entrée JSON (patch set)</label>
+  <textarea id="patch-in" placeholder="Colle ici ton JSON de patch…" style="height:180px"></textarea>
+  <label for="patch-out" class="small muted">Résultats / logs</label>
+  <textarea id="patch-out" placeholder="Résultats du dry-run ou de l'application…" readonly style="height:220px"></textarea>
+</div>
+      
+      
+      
       </section>
     </main>
 
