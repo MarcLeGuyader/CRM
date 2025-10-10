@@ -180,3 +180,5 @@ window.addEventListener('unhandledrejection', e=>{
 window.addEventListener('error', e=>{
   safeLog('ERROR', 'window.onerror', { message: e?.message, source: e?.filename, line: e?.lineno, col: e?.colno });
 });
+
+window.JSON_BUILD_TAG = BUILD_TAG;    // dans json-tools.js
