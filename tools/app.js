@@ -239,3 +239,6 @@ export const TV = {
   collectSelectedFilesFromTree,
 };
 window.TV = TV;
+
+
+window.APP_BUILD_TAG = BUILD_TAG;     // dans app.js
