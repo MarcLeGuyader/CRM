@@ -28,6 +28,15 @@
   <main id="opps"></main>
 
   <script type="module">
+// tout en haut d'index <script type="module">
+const INDEX_BUILD_TAG = 'index.html@v1';
+(window.__APP_VERSIONS__ ||= []).push({
+  file: 'index.html',
+  tag: INDEX_BUILD_TAG,
+  ts: Date.now(),
+  _origin: 'index'
+});
+    
     // 1) Bus en premier (pour que tout puisse émettre)
     import { bus } from './modules/event-bus/bus.js';
     window.bus = bus;
@@ -137,20 +146,38 @@
     });
 
     // === Affichage des versions au démarrage ===
-    try {
-      const printer = (msg, val) => {
-        const api = document.getElementById('debug')?.__debugConsoleAPI;
-        (api?.log || console.log)(msg, val);
-      };
-      // 1) Tous les tags enregistrés par les modules
-      App.printVersions(printer);
-      // 2) Le tag d'index en dernier
-      printer('[version] index.html', 'index@CRM v1');
-      // (optionnel) Ajouter aussi main.css si tu veux :
-      // App.registerVersion('styles/main.css', 'main.css@CRM v1'); App.printVersions(printer); // ou printer('[version] styles/main.css', 'main.css@CRM v1');
-    } catch (err) {
-      console.warn('[index] version display failed:', err);
-    }
+  
+// === Affichage des versions au démarrage ===
+try {
+  const printer = (msg, val) => {
+    const api = document.getElementById('debug')?.__debugConsoleAPI;
+    (api?.log || console.log)(msg, val);
+  };
+
+  // 1️⃣ On récupère tout ce que les modules ont poussé dans __APP_VERSIONS__
+  const versions = window.__APP_VERSIONS__ || [];
+
+  // 2️⃣ On les affiche (et on les envoie sur le bus pour éventuelle collecte)
+  versions
+    .filter(v => v.file !== 'index.html')
+    .forEach(v => {
+      bus.emit('app.version', v);
+      printer(`[version] ${v.file}`, v.tag);
+    });
+
+  // 3️⃣ On envoie l’index en dernier
+  const idx = versions.find(v => v.file === 'index.html');
+  if (idx) {
+    bus.emit('app.version', idx);
+    printer(`[version] ${idx.file}`, idx.tag);
+  }
+
+  // 4️⃣ (optionnel) on peut aussi afficher la version du main.css
+  printer('[version] styles/main.css', 'main.css@CRM v1');
+} catch (err) {
+  console.warn('[index] version display failed:', err);
+}
+    
   </script>
 </body>
 </html>
