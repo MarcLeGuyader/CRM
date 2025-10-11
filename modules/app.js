@@ -1,38 +1,41 @@
 // modules/app.js
-// BUILD_TAG: APP v1
+// Petit registre centralisé des versions (tags) pour l'appli
+// API :
+//   App.registerVersion(filePath, tagString)
+//   App.printVersions(printerFn?)  // printerFn(msg, value)
+//   App.getVersions() -> Array<{ file, tag, ts }>
 
-export const App = (() => {
-  const versions = {};
+const __GLOBAL_KEY__ = '__APP_VERSIONS__';
 
-  /**
-   * Enregistre la version d’un module
-   * @param {string} path - chemin du fichier ou module
-   * @param {string} tag - identifiant de version (ex: "debug-console@CRM v1")
-   */
-  function registerVersion(path, tag) {
-    if (!path || !tag) return;
-    versions[path] = tag;
+function ensureStore(){
+  if (!window[__GLOBAL_KEY__]) {
+    window[__GLOBAL_KEY__] = [];
   }
+  return window[__GLOBAL_KEY__];
+}
 
-  /**
-   * Affiche toutes les versions enregistrées
-   * @param {function} printer - fonction de log (console.log ou DebugConsole.log)
-   */
-  function printVersions(printer = console.log) {
-    for (const [path, tag] of Object.entries(versions)) {
-      printer(`[version] ${path}`, tag);
-    }
-  }
+function registerVersion(file, tag){
+  const store = ensureStore();
+  const existingIdx = store.findIndex(x => x.file === file);
+  const rec = { file: String(file || ''), tag: String(tag || ''), ts: Date.now() };
+  if (existingIdx >= 0) store[existingIdx] = rec;
+  else store.push(rec);
+  return rec;
+}
 
-  // 🔄 Si certains modules ont stocké leurs versions avant que App ne soit chargé
-  if (Array.isArray(window.__pendingVersions)) {
-    window.__pendingVersions.forEach(([p, v]) => registerVersion(p, v));
-    delete window.__pendingVersions;
-  }
+function getVersions(){
+  // clone trié par file asc
+  return ensureStore().slice().sort((a,b) => a.file.localeCompare(b.file));
+}
 
-  // Expose globalement
-  return { registerVersion, printVersions };
-})();
+function printVersions(printer){
+  const print = typeof printer === 'function'
+    ? printer
+    : (msg, v) => console.log(msg, v);
 
-// Rattache à window pour usage global
-window.App = App;
+  getVersions().forEach(r => {
+    print(`[version] ${r.file}`, r.tag);
+  });
+}
+
+export const App = { registerVersion, printVersions, getVersions };
