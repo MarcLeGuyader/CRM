@@ -2,20 +2,57 @@
 // Public entry point AND orchestrator for all dialogs
 // Very verbose tracing to track iPad/Safari issues with <dialog>.showModal()
 
+// === BUILD_TAG: version du module ===
+const BUILD_TAG = 'dialogs@v1';
+
+// === Enregistrement de version (compatible avec chargement avant App.js) ===
+(function registerVersionSafely() {
+  try {
+    const maybeApp = (window.App ||= {});
+    if (typeof maybeApp.registerVersion === 'function') {
+      maybeApp.registerVersion('modules/dialogs/dialogs.js', BUILD_TAG);
+    } else {
+      (window.__APP_VERSIONS__ ||= []).push({
+        file: 'modules/dialogs/dialogs.js',
+        tag: BUILD_TAG,
+        ts: Date.now()
+      });
+    }
+  } catch (err) {
+    // on reste silencieux ici pour ne pas briser le module si App n'existe pas
+  }
+})();
+
+// === Injection CSS sécurisée (au cas où le stylesheet des dialogs ne serait pas chargé) ===
+(function ensureDialogsCSS() {
+  try {
+    const href = './modules/dialogs/dialogs.css';
+    const already = Array.from(document.styleSheets || []).some(ss => {
+      try { return ss.href && ss.href.endsWith('/modules/dialogs/dialogs.css'); }
+      catch { return false; }
+    }) || !!document.querySelector(`link[rel="stylesheet"][href="${href}"]`);
+    if (!already) {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = href;
+      link.crossOrigin = 'anonymous';
+      document.head.appendChild(link);
+    }
+  } catch {}
+})();
+
 import { renderOpportunityDialog } from './opportunity-dialog.js';
 import { renderCompanyDialog } from './company-dialog.js';
 import { renderContactDialog } from './contact-dialog.js';
 
 export function mountDialogs(deps) {
-  const {
-    bus,
-    // les autres deps existent, mais ici on ne s'en sert pas directement
-  } = deps || {};
+  const { bus } = deps || {};
 
   // --- tiny local logger that also emits to the bus
-  const say = (topic, payload = {}) => {
-    try { console.log('[dialogs]', topic, payload); } catch {}
-    try { bus?.emit?.('dialogs.trace', { topic, ...payload }); } catch {}
+  const say = (topic, payload) => {
+    const pay = (payload === undefined ? {} : payload);
+    try { console.log('[dialogs]', topic, pay); } catch {}
+    try { bus?.emit?.('dialogs.trace', { topic, payload: pay }); } catch {}
   };
   const boom = (ctx, err) => {
     const pay = { context: ctx, message: err?.message || String(err), stack: err?.stack || '' };
@@ -30,7 +67,7 @@ export function mountDialogs(deps) {
     throw e;
   }
 
-  say('init.start', { deps: Object.keys(deps || {}) });
+  say('init.start', { deps: Object.keys(deps || {}), buildTag: BUILD_TAG });
 
   // === Root backdrop and stack
   const host = document.createElement('div');
