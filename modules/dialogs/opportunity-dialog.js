@@ -56,7 +56,7 @@ function selectCompany(currentId){
   if (!currentId) ph.selected = true;
   sel.appendChild(ph);
   companies.forEach(c => {
-    const label = c?.name ? `${c.name} (${c.id})` : (c?.id || '(unknown)');
+    const label = c?.name || '(unknown)';
     const opt = el('option', { value: c?.id || '', text: label });
     if ((c?.id || '') === currentId) opt.selected = true;
     sel.appendChild(opt);
@@ -67,6 +67,9 @@ function selectCompany(currentId){
 // --- Clients helper (liste à partir de state.rows ou companies)
 function resolveClients(){
   const state = window.DATA?.orchestrator?.getState?.() || {};
+  const fromRows = Array.isArray(state.rows) ? state.rows.map(r => r?.client).filter(Boolean) : [];
+  return Array.from(new Set(fromRows)).sort();
+};
   const fromRows = Array.isArray(state.rows) ? state.rows.map(r => r?.client).filter(Boolean) : [];
   const fromCompanies = Array.isArray(state.companies) ? state.companies.map(c => c?.name).filter(Boolean) : [];
   return Array.from(new Set([...fromRows, ...fromCompanies])).sort();
@@ -158,7 +161,7 @@ export function renderOpportunityDialog({
   const hdr = el('header', {}, [
     el('div', {}, [
       el('h3', { text: title }),
-      el('div', { html: row?.id ? '<small style="color:#374151;display:block;margin-top:2px;font-weight:600">ID: ' + row.id + '</small>' : '' })
+      el('div', { html: row?.id ? '<small style="color:#111827;display:block;margin-top:2px;font-weight:700">ID: ' + row.id + '</small>' : '' })
     ])
   ]);
 
@@ -166,18 +169,33 @@ export function renderOpportunityDialog({
   const contactName = row?.contactId ? (resolveContactName(row.contactId) || row.contactId) : '(none)';
 
   const grid = el('div', { class: 'grid2' }, [
+    // Ligne 1-2: base
     wrap('Name', el('input', { name: 'name', value: row?.name || '' })),
     wrap('Sales step', selectStep(row?.salesStep || '', getSalesSteps)),
+
+    // Ligne 3-4: lead & client
     wrap('Lead source', selectLeadSource(row?.leadSource || '')),
     wrap('Client', selectClient(row?.client || '')),
+
+    // Ligne 5-6: owner & company
     wrap('Owner', selectOwner(row?.owner || '', getOwners)),
     wrap('Company', selectCompany(row?.companyId || '')),
-    wrap('Contact Name', el('div', {}, [ link(contactName, () => openContact((row?.contactId||'').trim())) ])),
-    wrap('Notes', el('textarea', { name: 'notes' }, [document.createTextNode(row?.notes || '')])),
-    wrap('Next actions', el('input', { name: 'nextAction', value: row?.nextAction || '' })),
-    wrap('Next action date', el('input', { name: 'nextActionDate', type: 'date', value: row?.nextActionDate || '' })),
+
+    // Ligne 7-8: closing date & value
     wrap('Closing date', el('input', { name: 'closingDate', type: 'date', value: row?.closingDate || '' })),
-    wrap('Closing value (€)', el('input', { name: 'closingValue', type: 'number', step: '0.01', value: (row?.closingValue ?? '').toString() }))
+    wrap('Closing value (EUR)', el('input', { name: 'closingValue', type: 'number', step: '0.01', value: (row?.closingValue ?? '').toString() })),
+
+    // Ligne 9-10: contact + next action date
+    wrap('Contact Name', el('div', {}, [ link(contactName, () => openContact((row?.contactId||'').trim())) ])),
+    wrap('Next action date', el('input', { name: 'nextActionDate', type: 'date', value: row?.nextActionDate || '' })),
+
+    // Pleine largeur: Next action (4 lignes), puis Notes (8 lignes)
+    el('div', { style: 'grid-column: 1 / -1' }, [
+      wrap('Next actions', el('textarea', { name: 'nextAction', rows: '4' }, [document.createTextNode(row?.nextAction || '')]))
+    ]),
+    el('div', { style: 'grid-column: 1 / -1' }, [
+      wrap('Notes', el('textarea', { name: 'notes', rows: '8' }, [document.createTextNode(row?.notes || '')]))
+    ])
   ]);
 
   const errors = el('pre', { class: 'crm-errors' });
