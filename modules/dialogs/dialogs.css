@@ -2,10 +2,20 @@
 .crm-dialogs-backdrop {
   position: fixed;
   inset: 0;
-  pointer-events: none;
+  display: none;                /* caché par défaut */
+  align-items: center;          /* centre le <dialog> si non-modal */
+  justify-content: center;
+  background: rgba(0,0,0,.35);  /* voile */
+  z-index: 999;                 /* au-dessus du contenu */
+  pointer-events: none;         /* par défaut, pas d’interaction tant qu’“open” n’est pas posé */
 }
 
+.crm-dialogs-backdrop.open {
+  display: flex;                /* visible quand .open est posé par dialogs.js */
+  pointer-events: auto;         /* réactive l’interaction pour le dialog et le backdrop */
+}
 .crm-dialog {
+  background: #fff;
   border: 1px solid #e5e7eb;
   border-radius: 12px;
   padding: 12px;
