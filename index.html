@@ -28,21 +28,37 @@
   <main id="opps"></main>
 
   <script type="module">
+    // 1) Bus en premier (pour que tout puisse émettre)
     import { bus } from './modules/event-bus/bus.js';
     window.bus = bus;
+
+    // 2) Registre global des versions
+    import { App } from './modules/app.js';
+    // On tag immédiatement le module App lui-même
+    App.registerVersion('modules/app.js', 'App@v1');
+
+    // 3) Console debug
     await import('./modules/debug-console/debug-console.js');
     const debugApi = window.DebugConsole?.mount
       ? window.DebugConsole.mount(document.getElementById('debug'), { open: false })
       : { log: (...a)=>console.log('[debug fallback]', ...a), toggle:()=>{} };
+
+    // Tag de la console debug (on sait maintenant qu'elle est chargée)
+    App.registerVersion('modules/debug-console/debug-console.js', 'debug-console@CRM v1');
+
     try {
       await import('./modules/data-orchestrator/data-orchestrator.js');
       debugApi.log('[mounted] data-orchestrator');
+      // (optionnel) App.registerVersion('modules/data-orchestrator/data-orchestrator.js', 'data-orchestrator@vX');
     } catch (e) { console.error('[index] orchestrator error', e); debugApi.log('[error] orchestrator: ' + (e?.message||e)); }
+
     try {
       const { mount: mountBanner } = await import('./modules/top-banner/top-banner.js');
       mountBanner(document.getElementById('banner'), window.bus);
       debugApi.log('[mounted] top-banner');
+      // (optionnel) App.registerVersion('modules/top-banner/top-banner.js', 'top-banner@vX');
     } catch (e) { console.error('[index] banner error', e); debugApi.log('[error] banner: ' + (e?.message||e)); }
+
     try {
       const { createFiltersModule } = await import('./modules/filters/filters.js');
       const link = document.createElement('link');
@@ -50,7 +66,10 @@
       const { mount: mountFilters } = createFiltersModule(window.bus);
       mountFilters(document.getElementById('filters'), { q:'', client:'', closeDate:{}, salesStep:'' });
       debugApi.log('[mounted] filters');
+      // (optionnel) App.registerVersion('modules/filters/filters.js', 'filters@vX');
+      // (optionnel) App.registerVersion('modules/filters/filters.css', 'filters.css@vX');
     } catch (e) { console.warn('[index] filters not mounted', e); debugApi.log('[warn] filters: ' + (e?.message||e)); }
+
     let currentRows = [];
     try {
       const tableCss = document.createElement('link');
@@ -73,7 +92,10 @@
         }
       }, 300);
       debugApi.log('[mounted] opportunity-table');
+      // (optionnel) App.registerVersion('modules/opportunity-table/opportunity-table.js', 'opptable@vX');
+      // (optionnel) App.registerVersion('modules/opportunity-table/opportunity-table.css', 'opptable.css@vX');
     } catch (e) { console.error('[index] opportunity-table error', e); debugApi.log('[error] opportunity-table: ' + (e?.message||e)); }
+
     try {
       const { mountDialogs } = await import('./modules/dialogs/dialogs.js');
       const orchestrator = window.DATA?.orchestrator;
@@ -87,14 +109,19 @@
       const getSalesSteps = () => Array.isArray(getState().salesSteps) ? getState().salesSteps : [];
       window.dialogs = mountDialogs({ bus: window.bus, resolveCompanyName, resolveContactName, listContactsByCompany, getOpportunityById, getSalesSteps, getCompanyById, getContactById });
       debugApi.log('[mounted] dialogs');
+      // (optionnel) App.registerVersion('modules/dialogs/dialogs.js', 'dialogs@vX');
+      // (optionnel) App.registerVersion('modules/dialogs/dialogs.css', 'dialogs.css@vX');
     } catch (e) { console.warn('[index] dialogs not mounted', e); debugApi.log('[warn] dialogs: ' + (e?.message || e)); }
+
     try {
       await ensureXLSX();
       const { registerImportExport } = await import('./modules/import-export/index.js');
       const getRows = () => { const s = window.DATA?.orchestrator?.getState?.(); return (s && Array.isArray(s.rows)) ? s.rows : (Array.isArray(currentRows) ? currentRows : []); };
       registerImportExport({ bus: window.bus, getRows });
       debugApi.log('[mounted] import-export');
+      // (optionnel) App.registerVersion('modules/import-export/index.js', 'import-export@vX');
     } catch (e) { console.warn('[index] import-export not mounted', e); debugApi.log('[warn] import-export: ' + (e?.message||e)); }
+
     [
       'ui.banner.filter','ui.banner.new','ui.banner.debug','ui.banner.reset',
       'ui.banner.upload','ui.banner.export','ui.banner.save',
@@ -103,7 +130,27 @@
       'dialogs.open.opportunity','dialogs.open.company','dialogs.open.contact','dialogs.close',
       'dialogs.trace','dialogs.error','ui.opptable.inline.toggle','ui.opptable.inline.set', 'opptable.trace'
     ].forEach(t => bus.on(t, p => debugApi.log(`<${t}>`, p)));
-    bus.on('data.loaded', () => { const state = window.DATA?.orchestrator?.getState?.(); debugApi.log('<<state.snapshot>>', state ? { rows: state.rows?.length || 0, companies: state.companies?.length || 0, contacts: state.contacts?.length || 0, salesSteps: state.salesSteps?.length || 0 } : '(no state)'); });
+
+    bus.on('data.loaded', () => {
+      const state = window.DATA?.orchestrator?.getState?.();
+      debugApi.log('<<state.snapshot>>', state ? { rows: state.rows?.length || 0, companies: state.companies?.length || 0, contacts: state.contacts?.length || 0, salesSteps: state.salesSteps?.length || 0 } : '(no state)');
+    });
+
+    // === Affichage des versions au démarrage ===
+    try {
+      const printer = (msg, val) => {
+        const api = document.getElementById('debug')?.__debugConsoleAPI;
+        (api?.log || console.log)(msg, val);
+      };
+      // 1) Tous les tags enregistrés par les modules
+      App.printVersions(printer);
+      // 2) Le tag d'index en dernier
+      printer('[version] index.html', 'index@CRM v1');
+      // (optionnel) Ajouter aussi main.css si tu veux :
+      // App.registerVersion('styles/main.css', 'main.css@CRM v1'); App.printVersions(printer); // ou printer('[version] styles/main.css', 'main.css@CRM v1');
+    } catch (err) {
+      console.warn('[index] version display failed:', err);
+    }
   </script>
 </body>
 </html>
