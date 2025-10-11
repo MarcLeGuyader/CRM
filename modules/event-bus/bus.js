@@ -5,6 +5,19 @@
  * - Returns an unsubscribe function from `on`.
  * - Includes `count` and `clear` for diagnostics/tests.
  */
+
+// BUILD_TAG: CRM-BUS v1
+const VERSION = 'bus@CRM v1';
+
+// Optionnel : enregistre la version si App est déjà chargé
+if (window.App?.registerVersion) {
+  window.App.registerVersion('modules/event-bus/bus.js', VERSION);
+} else {
+  // Si App n’est pas encore là, on retente plus tard
+  window.__pendingVersions = window.__pendingVersions || [];
+  window.__pendingVersions.push(['modules/event-bus/bus.js', VERSION]);
+}
+
 export const bus = (() => {
   /** @type {Map<string, Set<Function>>} */
   const map = new Map();
