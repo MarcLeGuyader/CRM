@@ -1,124 +1,90 @@
-PATCH TOOL — Mode d’emploi + Format JSON
-========================================
+# Outil de patch GitHub – patch-tools.js
 
-But
----
-Appliquer des "patchs" textuels sur des fichiers du dépôt via l’API GitHub Contents :
-- DRY-RUN : simule et montre ce qui serait changé
-- APPLY   : écrit réellement et commit les fichiers modifiés
+## 1. Objectif général
+L’outil **Patch Tool** permet d’appliquer des modifications automatisées sur des fichiers d’un dépôt GitHub. Il prend en entrée un **fichier JSON de patch** décrivant des changements (`replace`, `insert`, `delete`, etc.), vérifie des **préconditions strictes**, et applique les changements soit en mode **Dry-run** (simulation), soit en mode **Apply** (écriture réelle sur GitHub).
 
-Flux recommandé (process)
--------------------------
-1) On discute du besoin fonctionnel → je propose un plan (fichiers concernés + ops).
-2) Tu me renvoies la liste des fichiers + le plan d’opérations par fichier.
-3) Tu m’envoies le JSON complet des fichiers actuels (si besoin d’audit).
-4) Je fournis un JSON “patch set” prêt à charger.
-5) Tu colles ce JSON dans l’onglet PATCH (#patch-in), puis “Dry-run”.
-6) Si OK : “Apply” pour pousser les modifications (requires PAT).
+## 2. Fonctionnalités principales
+### 2.1 Dry-Run
+- Simule le patch sans rien écrire sur GitHub.
+- Télécharge chaque fichier cible.
+- Applique virtuellement les opérations (replace, insert, delete...).
+- Génère un **rapport détaillé** dans le champ de sortie (`#patch-out`).
+- Affiche les logs dans la console (avec niveaux INFO, WARN, ERROR).
 
-Pré-requis UI
--------------
-- Champs déjà présents : #owner, #repo, #branch, #token
-- Onglet “Patch” avec :
-    <textarea id="patch-in"></textarea>
-    <div class="row">
-      <button id="btn-patch-dryrun">Dry-run</button>
-      <button id="btn-patch-apply">Apply</button>
-    </div>
-    <textarea id="patch-out" readonly></textarea>
+### 2.2 Apply
+- Identique au Dry-run, mais écrit réellement les fichiers sur GitHub.
+- Envoie un commit par fichier via l’API GitHub `PUT /contents/{path}`.
+- Utilise un **committer** générique : `{ name: "Patch Tool", email: "noreply@example.com" }`.
+- Vérifie le SHA pour assurer un **verrouillage optimiste** (évite d’écraser un fichier modifié depuis).
 
-Authentification
-----------------
-- DRY-RUN : pas besoin de token (lecture publique OK si repo public).
-- APPLY   : besoin d’un PAT (Fine-grained ou classique) avec permission "contents:write".
+### 2.3 Opérations supportées
+| Type | Effet |
+|------|--------|
+| replace | Remplace la première occurrence d’un texte. |
+| replace_all | Remplace toutes les occurrences. |
+| replace_regex | Remplace via une expression régulière. |
+| insert_after_anchor | Ajoute des lignes après une ligne contenant une chaîne. |
+| insert_before_anchor | Ajoute des lignes avant une ligne contenant une chaîne. |
+| insert_after_line | Ajoute des lignes après une ligne correspondant à un regex. |
+| insert_before_line | Ajoute des lignes avant une ligne correspondant à un regex. |
+| delete_line | Supprime des lignes contenant un texte ou un regex. |
 
-Schéma JSON du “patch set”
---------------------------
+## 3. Format du patch JSON
+Structure : 
+```
 {
-  "version": 1,
-  "target": {                 // facultatif (sinon on utilise #owner/#repo/#branch de l’UI)
-    "owner": "MarcLeGuyader",
-    "repo": "CRM",
-    "branch": "main"
-  },
-  "commit": {                 // facultatif
-    "message": "Apply patch set",
-    "committer": { "name": "Patch Tool", "email": "noreply@example.com" }
-  },
   "changes": [
     {
-      "path": "tools/app.js",
-      "ops": [
-        { "type": "replace_once",  "find": "name.style.display = 'block';", "replace": "// name.style.display = 'block';" },
-        { "type": "insert_after",  "anchor": "export const TV = {", "text": "  /* new field */\n" },
-        { "type": "append",        "text": "\n// EOF marker\n" }
-      ]
-    },
-    {
-      "path": "tools/styles.css",
-      "ops": [
-        { "type": "replace_all",   "find": "--brand:#1e6091;", "replace": "--brand:#1a6b9a;" },
-        { "type": "insert_before", "anchor": "/* Console */",  "text": "/* --- patch injected --- */\n" }
-      ]
+      "path": "chemin/du/fichier.js",
+      "pre": { ... },
+      "ops": [ ... ],
+      "message": "message optionnel"
     }
   ]
 }
+```
 
-Opérations supportées
----------------------
-- replace_once:  { "type":"replace_once", "find":"...", "replace":"..." }
-  -> Remplace la 1ère occurrence exacte de `find`.
+## 4. Vérifications et préconditions
+- `expectSha` : SHA GitHub attendu.
+- `expectSize` : taille du fichier.
+- `expectHash` : hash SHA-256 attendu.
+- `expectIncludes` : texte obligatoire dans le fichier.
+- `strict` : si true, bloque sur écart ; sinon passe avec avertissement.
 
-- replace_all:   { "type":"replace_all", "find":"...", "replace":"..." }
-  -> Remplace TOUTES les occurrences exactes de `find` (recherche textuelle simple).
+## 5. Aides intégrées
+- Conversion UTF-8/Base64 propre (préserve emojis).
+- Console intégrée (`TV.log`).
+- Protection contre les caractères “smart” (guillemets courbes, tirets, NBSP...).
+- Normalisation automatique du texte JSON avant parsing.
+- Hardening des textarea (désactivation autocorrect, etc.).
 
-- insert_after:  { "type":"insert_after", "anchor":"texte ou portion de ligne", "text":"lignes à insérer" }
-  -> Insère APRES la 1ère ligne qui contient `anchor`.
+## 6. Interface
+- `#btn-patch-dryrun` : simulation.
+- `#btn-patch-apply` : application réelle.
+- `#patch-in` : zone JSON d’entrée.
+- `#patch-out` : zone de sortie des logs.
+- `📂 Load JSON file` : bouton pour importer un fichier .json local.
 
-- insert_before: { "type":"insert_before", "anchor":"texte ou portion de ligne", "text":"lignes à insérer" }
-  -> Insère AVANT la 1ère ligne qui contient `anchor`.
+## 7. Sécurité
+- Vérrouillage SHA GitHub.
+- Hash SHA-256 calculé côté client.
+- Gestion des erreurs via try/catch, `window.onerror`, et `unhandledrejection`.
+- Logs détaillés pour chaque étape.
 
-- delete_lines:  { "type":"delete_lines", "from":10, "to":20 }
-  -> Supprime les lignes [from..to] inclus (index 1-based).
+## 8. Intégration
+Repose sur `TV` (fourni par app.js) : `ghBase`, `ghHeaders`, `log`.
 
-- replace_range: { "type":"replace_range", "from":10, "to":20, "text":"..." }
-  -> Remplace les lignes [from..to] par `text`.
+## 9. Flux typique
+1. Entrer owner/repo/branch/token.
+2. Coller ou importer le JSON.
+3. Lancer Dry-run.
+4. Vérifier le résultat.
+5. Lancer Apply.
+6. Consulter la sortie et les logs.
 
-- append:        { "type":"append", "text":"..." }
-  -> Ajoute en fin de fichier.
-
-- prepend:       { "type":"prepend", "text":"..." }
-  -> Ajoute en début de fichier.
-
-Bonnes pratiques
-----------------
-- DRY-RUN d’abord : vérifie les ancres trouvées, les plages, etc.
-- Granularité : privilégie des `insert_after/insert_before` sur ancres stables.
-- Commits : fournis un `commit.message` clair, le tool ajoute “ — <path>” par fichier.
-- Idempotence : si possible, écrire des patchs qui n’échouent pas s’ils sont rejoués (ex: replace_once + vérifs).
-
-Erreurs fréquentes
-------------------
-- “ancre NON TROUVÉE” : vérifie l’orthographe et la casse. Le moteur cherche “line.includes(anchor)”.
-- “Patch JSON invalide” : valide le JSON (virgule manquante, guillemets, etc.).
-- “PUT … 404/409” : SHA obsolète (conflit), branche incorrecte, ou PAT insuffisant.
-
-Sécurité
---------
-- Le tool NE modifie QUE les `path` listés sous `changes`.
-- En APPLY, chaque fichier est poussé en un PUT séparé (commit par fichier).
-- Pour un seul commit global, il faudrait basculer en API git (trees/commits) → hors scope simple.
-
-Exemple minimal
----------------
-{
-  "version": 1,
-  "changes": [
-    {
-      "path": "README.md",
-      "ops": [
-        { "type":"append", "text":"\nPatched at: 2025-10-10\n" }
-      ]
-    }
-  ]
-}
+## 10. Versions
+| Version | Changements |
+|----------|-------------|
+| v8 | Base complète du patch tool |
+| v9 | Hardening et nettoyage iPad / smart punctuation |
+| v10 | Ajout du bouton 📂 Load JSON file |
