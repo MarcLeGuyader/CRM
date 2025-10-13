@@ -1,6 +1,6 @@
 // tools/patch-tools.js — Outil Patch (Dry-run / Apply) — sécurisé & verbeux
 
-export const BUILD_TAG = { file: "patch-tools.js", note: "v11 - .old backup before apply" };
+export const BUILD_TAG = { file: "patch-tools.js", note: "v11.2 - .old backup fixed" };
 
 const TV = window.TV;
 const $  = (s) => document.querySelector(s);
@@ -17,15 +17,12 @@ function desmartUnicode(s) {
     .replace(/\u2026/g,'...')       // … → ...
     .replace(/[\u2013\u2014]/g,'-') // – — → -
     .replace(/\r\n?/g,'\n');       // CRLF → LF
-}
 function hasSmartChars(s){
   return /[\uFEFF\u00A0\u2018\u2019\u201C\u201D\u2026\u2013\u2014]/.test(s||"");
-}
 function sanitizeInput(s, fieldName){
   const clean = desmartUnicode(s);
   if (hasSmartChars(s) && TV?.log) TV.log('WARN', `[sanitize] ${fieldName||'input'} contained smart chars; normalized`);
   return clean;
-}
 
 
 // ---------- UTF-8 <-> base64 helpers ----------
@@ -35,21 +32,17 @@ function utf8ToBase64(str) {
   let bin = "";
   for (let i=0;i<bytes.length;i++) bin += String.fromCharCode(bytes[i]);
   return btoa(bin);
-}
 function base64ToUtf8(b64) {
   const bin = atob((b64 || "").replace(/\n/g,""));
   const len = bin.length;
   const bytes = new Uint8Array(len);
   for (let i=0;i<len;i++) bytes[i] = bin.charCodeAt(i) & 0xff;
-  try {
     return new TextDecoder("utf-8", { fatal:false }).decode(bytes);
   } catch {
     // fallback
     let s = "";
     for (let i=0;i<len;i++) s += String.fromCharCode(bytes[i]);
     return s;
-  }
-}
 
 // ---------- GitHub helpers ----------
 async function ghGetFile({ owner, repo, branch, token, path }) {
@@ -57,7 +50,6 @@ async function ghGetFile({ owner, repo, branch, token, path }) {
   const res = await fetch(url, { headers: TV.ghHeaders(token) });
   if (!res.ok) throw new Error(`GET ${path} → ${res.status}`);
   return res.json(); // { content(b64), sha, size, path, ... }
-}
 async function ghPutFile({ owner, repo, branch, token, path, sha, content, message, committer }) {
   const url = `${TV.ghBase(owner,repo)}/contents/${encodeURIComponent(path)}`;
   const body = {
@@ -76,31 +68,29 @@ async function ghPutFile({ owner, repo, branch, token, path, sha, content, messa
   if (!res.ok) {
     const txt = await res.text().catch(()=>"");
     throw new Error(`PUT ${path} → ${res.status} ${txt || ""}`);
-  }
   return res.json();
-}
 
 
 // ---------- Backup helpers (.old) ----------
 async function getOldShaIfExists(ctx, backupPath){
-  try {
     const metaOld = await ghGetFile({ ...ctx, path: backupPath });
     return metaOld?.sha || null;
   } catch(e){
     // ghGetFile lève une erreur non-OK; si 404, on ignore
     if (String(e).includes('→ 404')) return null;
     throw e;
-  }
-}
 async function writeBackupOld(ctx, path, original, committer){
   const backupPath = `${path}.old`;
   const oldSha = await getOldShaIfExists(ctx, backupPath);
-        // ---- Écriture du backup .old (uniquement si le fichier change) ----
+
+        // ---- Écrire le backup .old avant l'écriture du fichier patché ----
         try {
           await writeBackupOld(ctx, change.path, original, committer);
-          safeLog('INFO', 'Backup .old écrit', { path: change.path + '.old' });
+          out += `  backup: ${change.path}.old ✅\n`;
+          safeLog('INFO','Backup .old écrit', { path: change.path + '.old' });
         } catch (e) {
-          safeLog('WARN', 'Backup .old impossible', { path: change.path + '.old', error: String(e) });
+          out += `  backup: ${change.path}.old ❌ ${String(e)}\n`;
+          safeLog('WARN','Backup .old impossible', { path: change.path + '.old', error: String(e) });
         }
 
   await ghPutFile({
@@ -112,14 +102,12 @@ async function writeBackupOld(ctx, path, original, committer){
     message: `Backup: copy of ${path} -> ${backupPath}`,
     committer,
   });
-}
 
 // ---------- Préconditions strictes ----------
 async function sha256Hex(text) {
   const enc = new TextEncoder().encode(text);
   const buf = await crypto.subtle.digest("SHA-256", enc);
   return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
-}
 
 async function checkPreconditions(meta, text, pre, logFn) {
   if (!pre) return { ok: true, why: "no-pre" };
@@ -144,15 +132,12 @@ async function checkPreconditions(meta, text, pre, logFn) {
   if (!ok && strict) {
     log("ERROR", "[preconditions] mismatch strict", { path: meta?.path, fails, metaSha: shaGit, size, sha256 });
     return { ok: false, why: "strict-mismatch", detail: fails };
-  }
   if (!ok && !strict) {
     log("WARN", "[preconditions] mismatch (relaxed)", { fails, metaSha: shaGit, size, sha256 });
     return { ok: true, why: "relaxed" };
-  }
 
   log("INFO", "[preconditions] OK", { sha: shaGit, size, sha256 });
   return { ok: true, why: "ok" };
-}
 
 // ---------- UI helpers ----------
 const busy = (on) => {
@@ -171,7 +156,6 @@ const getPatchJSON = () => {
   try { j = JSON.parse(raw); } catch(e){ throw new Error(`JSON invalide: ${e.message}`); }
   if (!j || !Array.isArray(j.changes) || j.changes.length===0) {
     throw new Error('Patch JSON: "changes" vide ou absent');
-  }
   return j;
 };
 const setOut = (txt) => { const ta = $('#patch-out'); if (ta) ta.value = txt; };
@@ -182,7 +166,6 @@ function replaceOnce(text, find, repl) {
   if (idx < 0) return { changed:false, out:text, count:0 };
   const out = text.slice(0,idx) + repl + text.slice(idx+find.length);
   return { changed:true, out, count:1 };
-}
 function replaceAll(text, find, repl) {
   if (!find) return { changed:false, out:text, count:0 };
   let count = 0;
@@ -191,9 +174,7 @@ function replaceAll(text, find, repl) {
   while ((idx = out.indexOf(find)) !== -1) {
     out = out.slice(0, idx) + repl + out.slice(idx + find.length);
     count++;
-  }
   return { changed: count>0, out, count };
-}
 function replaceRegex(text, pattern, flags, repl) {
   const rx = new RegExp(pattern, flags || "");
   if (!rx.test(text)) return { changed:false, out:text, count:0 };
@@ -204,7 +185,6 @@ function replaceRegex(text, pattern, flags, repl) {
     count = m ? m.length : 0;
   } else count = 1;
   return { changed:true, out, count };
-}
 function byLines(text) { return text.replace(/\r\n/g, "\n").split("\n"); }
 function joinLines(lines) { return lines.join("\n"); }
 
@@ -215,7 +195,6 @@ function insertAfterAnchor(text, anchor, linesToInsert) {
   const insert = Array.isArray(linesToInsert) ? linesToInsert : [String(linesToInsert ?? "")];
   lines.splice(idx+1, 0, ...insert);
   return { changed:true, out: joinLines(lines) };
-}
 function insertBeforeAnchor(text, anchor, linesToInsert) {
   const lines = byLines(text);
   const idx = lines.findIndex(l => l.includes(anchor));
@@ -223,7 +202,6 @@ function insertBeforeAnchor(text, anchor, linesToInsert) {
   const insert = Array.isArray(linesToInsert) ? linesToInsert : [String(linesToInsert ?? "")];
   lines.splice(idx, 0, ...insert);
   return { changed:true, out: joinLines(lines) };
-}
 function insertAfterLine(text, regex, flags, linesToInsert) {
   const rx = new RegExp(regex, flags || "");
   const lines = byLines(text);
@@ -232,7 +210,6 @@ function insertAfterLine(text, regex, flags, linesToInsert) {
   const insert = Array.isArray(linesToInsert) ? linesToInsert : [String(linesToInsert ?? "")];
   lines.splice(idx+1, 0, ...insert);
   return { changed:true, out: joinLines(lines) };
-}
 function insertBeforeLine(text, regex, flags, linesToInsert) {
   const rx = new RegExp(regex, flags || "");
   const lines = byLines(text);
@@ -241,7 +218,6 @@ function insertBeforeLine(text, regex, flags, linesToInsert) {
   const insert = Array.isArray(linesToInsert) ? linesToInsert : [String(linesToInsert ?? "")];
   lines.splice(idx, 0, ...insert);
   return { changed:true, out: joinLines(lines) };
-}
 function deleteLine(text, find, regex, flags) {
   const lines = byLines(text);
   let changed = false;
@@ -259,9 +235,7 @@ function deleteLine(text, find, regex, flags) {
       if (hit) changed = true;
       return !hit;
     });
-  }
   return { changed, out: joinLines(out) };
-}
 
 // ---------- Application d'un set d'ops sur un texte ----------
 function applyOpsToText(text, ops, reportArr) {
@@ -310,12 +284,9 @@ function applyOpsToText(text, ops, reportArr) {
       default:
         reportArr.push(`  - OP inconnue: ${op.type}`);
         res = { changed:false, out:cur };
-    }
     if (res.changed) { cur = res.out; anyChange = true; }
-  }
 
   return { text: cur, changed: anyChange };
-}
 
 // ---------- Dry-run ----------
 async function patchDryRun() {
@@ -323,7 +294,6 @@ async function patchDryRun() {
   busy(true);
   $('#status').textContent = 'Patch — Dry-run…';
 
-  try {
     const ctx = readCtx();
     safeLog("VERBOSE", "[patchDryRun] context", ctx);
 
@@ -337,7 +307,6 @@ async function patchDryRun() {
       i++;
       safeLog("VERBOSE", `[patchDryRun] Fichier ${i}/${spec.changes.length}: ${change.path}`);
       out += `# ${change.path}\n`;
-      try {
         const meta = await ghGetFile({ ...ctx, path: change.path });
         const text = base64ToUtf8(meta.content || "");
         safeLog("VERBOSE", `[patchDryRun] Fichier récupéré`, { path: change.path, size: meta.size ?? text.length });
@@ -347,7 +316,6 @@ async function patchDryRun() {
         if (!preChk.ok) {
           out += `  ❌ Préconditions NON satisfaites — patch ignoré (strict)\n\n`;
           continue;
-        }
 
         const report = [];
         const { text: patched, changed } = applyOpsToText(text, change.ops || [], report);
@@ -355,22 +323,16 @@ async function patchDryRun() {
 
         report.forEach(line => out += `    ${line}\n`);
         out += `  => ${changed ? "CHANGÉ ✅" : "inchangé"}\n\n`;
-      } catch (e) {
         safeLog("ERROR", `[patchDryRun] Erreur sur ${change.path}`, { error: String(e) });
         out += `  !! Erreur: ${String(e)}\n\n`;
-      }
-    }
 
     setOut(out);
     safeLog("INFO", "[patchDryRun] terminé");
-  } catch (e) {
     setOut(`Erreur dry-run:\n${String(e)}\n`);
     safeLog("ERROR", "[patchDryRun] échec", { error: String(e) });
   } finally {
     busy(false);
     $('#status').textContent = 'Prêt.';
-  }
-}
 
 // ---------- Apply ----------
 async function patchApply() {
@@ -378,7 +340,6 @@ async function patchApply() {
   busy(true);
   $('#status').textContent = 'Patch — Apply…';
 
-  try {
     const ctx = readCtx();
     const spec = getPatchJSON();
     if (!ctx.token) throw new Error("Un PAT GitHub est requis pour Apply.");
@@ -388,7 +349,6 @@ async function patchApply() {
 
     for (const change of spec.changes) {
       out += `# ${change.path}\n`;
-      try {
         const meta = await ghGetFile({ ...ctx, path: change.path });
         const original = base64ToUtf8(meta.content || "");
 
@@ -397,7 +357,6 @@ async function patchApply() {
         if (!preChk.ok) {
           out += `  ❌ Préconditions NON satisfaites — patch ignoré (strict)\n\n`;
           continue;
-        }
 
         const report = [];
         const { text: patched, changed } = applyOpsToText(original, change.ops || [], report);
@@ -406,7 +365,6 @@ async function patchApply() {
 
         if (typeof patched !== "string") {
           throw new Error(`patched invalide: ${typeof patched}`);
-        }
         safeLog("VERBOSE","[apply] payload ready", { path: change.path, len: patched.length });
 
         await ghPutFile({
@@ -420,22 +378,16 @@ async function patchApply() {
 
         out += `  => ÉCRIT ✅\n\n`;
         safeLog("APPLY", "Patched", { path: change.path });
-      } catch (e) {
         out += `  !! Erreur: ${String(e)}\n\n`;
         safeLog("ERROR", "Patch apply error", { path: change.path, error: String(e) });
-      }
-    }
 
     setOut(out);
     safeLog("SUMMARY", "Patch apply terminé");
-  } catch (e) {
     setOut(`Erreur apply:\n${String(e)}\n`);
     safeLog("ERROR", "Patch apply échec", { error: String(e) });
   } finally {
     busy(false);
     document.getElementById('status').textContent = 'Prêt.';
-  }
-}
 
 // ---------- Wire buttons ----------
 document.getElementById('btn-patch-dryrun')?.addEventListener('click', patchDryRun);
@@ -468,15 +420,12 @@ document.getElementById('btn-patch-apply')?.addEventListener('click', patchApply
       } else {
         const warn = document.getElementById('patch-warn');
         if (warn) warn.textContent = '';
-      }
     });
-  }
 })();
 
 
 // ---------- Import JSON depuis un fichier (bouton) ----------
 (function setupJsonFileImport(){
-  try {
     const ta = document.getElementById('patch-in');
     if (!ta) return; // pas d'éditeur détecté
 
@@ -500,7 +449,6 @@ document.getElementById('btn-patch-apply')?.addEventListener('click', patchApply
     input.addEventListener('change', async ()=>{
       const file = input.files?.[0];
       if(!file){ TV?.log?.('WARN','Aucun fichier JSON sélectionné'); return; }
-      try {
         const rawText = await file.text();
         // Nettoie d'abord (au cas où) puis parse
         const cleanText = typeof sanitizeInput === 'function' ? sanitizeInput(rawText, file.name) : rawText;
@@ -517,11 +465,9 @@ document.getElementById('btn-patch-apply')?.addEventListener('click', patchApply
       } finally {
         // Permettre un re-choix du même fichier si besoin
         input.value = '';
-      }
     });
   } catch(err){
     TV?.log?.('ERROR','setupJsonFileImport failed',{ error:String(err) });
-  }
 })();
 
 // ---------- Sentinelles ----------
