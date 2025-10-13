@@ -1,6 +1,6 @@
 // tools/patch-tools.js — Outil Patch (Dry-run / Apply) — sécurisé & verbeux
 
-export const BUILD_TAG = { file: "patch-tools.js", note: "v10 - add JSON file import button" };
+export const BUILD_TAG = { file: "patch-tools.js", note: "v11 - .old backup before apply" };
 
 const TV = window.TV;
 const $  = (s) => document.querySelector(s);
@@ -78,6 +78,40 @@ async function ghPutFile({ owner, repo, branch, token, path, sha, content, messa
     throw new Error(`PUT ${path} → ${res.status} ${txt || ""}`);
   }
   return res.json();
+}
+
+
+// ---------- Backup helpers (.old) ----------
+async function getOldShaIfExists(ctx, backupPath){
+  try {
+    const metaOld = await ghGetFile({ ...ctx, path: backupPath });
+    return metaOld?.sha || null;
+  } catch(e){
+    // ghGetFile lève une erreur non-OK; si 404, on ignore
+    if (String(e).includes('→ 404')) return null;
+    throw e;
+  }
+}
+async function writeBackupOld(ctx, path, original, committer){
+  const backupPath = `${path}.old`;
+  const oldSha = await getOldShaIfExists(ctx, backupPath);
+        // ---- Écriture du backup .old (uniquement si le fichier change) ----
+        try {
+          await writeBackupOld(ctx, change.path, original, committer);
+          safeLog('INFO', 'Backup .old écrit', { path: change.path + '.old' });
+        } catch (e) {
+          safeLog('WARN', 'Backup .old impossible', { path: change.path + '.old', error: String(e) });
+        }
+
+  await ghPutFile({
+    ...ctx,
+    path: backupPath,
+    // si le .old existe, on fournit son sha pour l'écraser; sinon, création sans sha
+    sha: oldSha || undefined,
+    content: original,
+    message: `Backup: copy of ${path} -> ${backupPath}`,
+    committer,
+  });
 }
 
 // ---------- Préconditions strictes ----------
